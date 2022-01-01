@@ -1,4 +1,7 @@
-module DataPipes
+@doc let path = joinpath(dirname(@__DIR__), "README.md")
+    include_dependency(path)
+    replace(read(path, String), "```julia" => "```jldoctest mylabel")
+end module DataPipes
 
 export @pipe, @pipefunc, @p, @pf, @f, @asis, mapmany, mutate, mutate_
 

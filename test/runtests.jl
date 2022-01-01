@@ -5,6 +5,9 @@ using Test
 import CompatHelperLocal
 CompatHelperLocal.@check()
 
+using Documenter
+doctest(DataPipes; manual=false)
+
 
 module MyModule
 myfunc(x) = 2x
