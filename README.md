@@ -20,7 +20,7 @@ Simple example of processing tabular data:
 ```julia
 @p begin
     tbl
-	filter(!any(ismissing, _))
+    filter(!any(ismissing, _))
     filter(_.id > 6)
     groupview(_.group)
     map(sum(_.age))
