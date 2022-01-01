@@ -37,6 +37,15 @@ end
         @test mutate_rec(x -> (b=(d=x.a,),), X) == [(a=1, b=(c=2, d=1)), (a=3, b=(c=4, d=3))]
         @test mutate_rec(x -> (b=(c=x.a,),), X) == [(a=1, b=(c=1,)), (a=3, b=(c=3,))]
     end
+
+    @testset "filter_map" begin
+        X = 1:10
+        Y = filtermap(x -> x % 3 == 0 ? Some(x^2) : nothing, X)
+        @test Y == [9, 36, 81]
+        @test typeof(Y) == Vector{Int}
+        @test filtermap(x -> x % 3 == 0 ? x^2 : nothing, X) == [9, 36, 81]
+        @test filtermap(x -> x % 3 == 0 ? Some(nothing) : nothing, X) == [nothing, nothing, nothing]
+    end
 end
 
 @testset "pipe" begin

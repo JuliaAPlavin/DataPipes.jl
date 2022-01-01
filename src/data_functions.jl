@@ -44,3 +44,11 @@ _merge_iterative(init, funcs::NamedTuple{()}) = init
 mutate_seq(A; kwargs...) = map(a -> merge_iterative(a; kwargs...), A)
 
 const mutate = mutate_flat
+
+
+"""
+Transform collection `A` by applying `f` to each element. Elements with `isnothing(f(x))` are dropped. Return `Some(nothing)` from `f` to keep `nothing` in the result.
+"""
+function filtermap(f, A...)
+    map(something, filter!(!isnothing, map(f, A...)))
+end
