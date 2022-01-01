@@ -257,7 +257,7 @@ end
             map(@pipe(_1.name, collect, map(lowercase(_)^2), join(↑, "")))
         end) == ["aa  bb", "cc"]
 
-        @test_broken @pipe(begin
+        @test @pipe(begin
             data
             map(@pipe(_1.name, collect, map(@pipe(_1, string, lowercase, (↑)^2)), join(↑, "")))
         end) == ["aa  bb", "cc"]
@@ -318,6 +318,17 @@ end
             (name="A B", values=[1, 4, 9, 16]),
             (name="C", values=[25, 36]),
         ]
+        @test (@p begin
+            data
+            map() do _
+                @p begin
+                    _1.values
+                    map() do _
+                        @p _1
+                    end
+                end
+            end
+        end) == [[1, 2, 3, 4], [5, 6]]
     end
 
     @testset "other base funcs" begin

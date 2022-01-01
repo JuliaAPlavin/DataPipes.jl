@@ -285,7 +285,12 @@ function max_placeholder_n(e)
 end
 function max_placeholder_n_inner(e)
     nargs = 0
+    seen_pipe = false
     prewalk(e) do ee
+        if is_pipecall(ee)
+            seen_pipe && return StopWalk(ee)
+            seen_pipe = true
+        end
         if is_outer_arg_placeholder(ee)
             nargs = max(nargs, outer_arg_placeholder_n(ee))
         end
@@ -299,8 +304,15 @@ replace_arg_placeholders(expr, args::Vector{Symbol}) = prewalk(expr) do ee
     is_pipecall(ee) && return StopWalk(replace_arg_placeholders_within_inner_pipe(ee, args))
     is_arg_placeholder(ee) ? args[arg_placeholder_n(ee)] : ee
 end
-replace_arg_placeholders_within_inner_pipe(expr, args::Vector{Symbol}) = prewalk(expr) do e
-    is_outer_arg_placeholder(e) ? args[outer_arg_placeholder_n(e)] : e
+replace_arg_placeholders_within_inner_pipe(expr, args::Vector{Symbol}) = let
+    seen_pipe = false
+    prewalk(expr) do e
+        if is_pipecall(e)
+            seen_pipe && return StopWalk(e)
+            seen_pipe = true
+        end
+        is_outer_arg_placeholder(e) ? args[outer_arg_placeholder_n(e)] : e
+    end
 end
 
 " Replace symbols in `expr` according to `syms_replacemap`. "
