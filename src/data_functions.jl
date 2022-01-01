@@ -1,5 +1,9 @@
 import SplitApplyCombine: mapmany
 
+
+(name::Symbol)(x) = getfield(x, name)
+(name::Val{S})(x) where {S} = getfield(x, S)
+
 mapmany(f_out::Function, f_in::Function, A) = [
 	f_in(a, b)
 	for a in A

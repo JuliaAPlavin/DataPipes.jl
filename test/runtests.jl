@@ -36,7 +36,7 @@ CompatHelperLocal.@check()
             map((;_.name))
         end) == [(name="A B",), (name="C",)]
 
-        f(data) = @pipe begin
+        f = data -> @pipe begin
             data
             map((;_.name))
         end
@@ -190,12 +190,17 @@ CompatHelperLocal.@check()
             map(_.fname)
         end) == ["A", "C"]
 
-        f(data) = @pipe begin
+        f = data -> @pipe begin
             data
             mutate_(parts=split(_.name), fname=_.parts[1])
             map(_.fname)
         end
         @test @inferred(f(data)) == ["A", "C"]
+
+        @test @pipe(data, map(:name)) == ["A B", "C"]
+        @test @pipe(data, map(Val(:name))) == ["A B", "C"]
+        f = data -> @pipe(data, map(Val(:name)))
+        @test @inferred(f(data)) == ["A B", "C"]
     end
 
     @testset "SAC funcs" begin
