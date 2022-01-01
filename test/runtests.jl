@@ -165,9 +165,26 @@ CompatHelperLocal.@check()
             (name="A B", values=[1, 2, 3, 4], fname="A"),
             (name="C", values=[5, 6], fname="C"),
         ]
+
+        @test @inferred(DataPipes.merge_iterative((;), a=x -> 1, b=x -> 2)) == (a=1, b=2)
+        @test @inferred(DataPipes.merge_iterative((;), a=x -> x, b=x -> length(x))) == (a=(;), b=1)
+
+        @test (@pipe begin
+            data
+            mutate_(fname=split(_.name)[1])
+        end) == [
+            (name="A B", values=[1, 2, 3, 4], fname="A"),
+            (name="C", values=[5, 6], fname="C"),
+        ]
+
+        @test (@pipe begin
+            data
+            mutate_(parts=split(_.name), fname=_.parts[1])
+            map(_.fname)
+        end) == ["A", "C"]
     end
 
-    @testset "keeping exp as-is" begin
+    @testset "keeping expr as-is" begin
         @test (@pipe begin
             data
             @asis map(x -> length(x.values) > 3, ↑)
