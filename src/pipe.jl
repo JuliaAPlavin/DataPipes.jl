@@ -185,31 +185,7 @@ end
 
 function pipe_process_exprfunc(func_fullname, args, prev::Union{Symbol, Nothing})
     args_processed = map(enumerate(args)) do (i, arg)
-        if arg isa Expr && arg.head == :kw
-            # arg is a kwarg, without preceding ';'
-            @assert length(arg.args) == 2
-            key = arg.args[1]
-            value = arg.args[2]
-            nargs = func_nargs(func_fullname, key)
-            Expr(:kw, key, func_or_body_to_func(value, nargs))
-        elseif arg isa Expr && arg.head == :parameters
-            # arg is multiple kwargs, with preceding ';'
-            Expr(arg.head, map(arg.args) do arg
-                if arg isa Expr && arg.head == :kw
-                    @assert length(arg.args) == 2
-                    key = arg.args[1]
-                    value = arg.args[2]
-                    nargs = func_nargs(func_fullname, key)
-                    Expr(:kw, key, func_or_body_to_func(value, nargs))
-                else
-                    arg
-                end
-            end...)
-        else
-            # arg is positional
-            nargs = func_nargs(func_fullname, Val(i))
-            func_or_body_to_func(arg, nargs)
-        end
+        transform_arg(arg, func_fullname, i)
     end
     if !isnothing(prev) && need_append_data_arg(args)
         name = string(unqualified_name(func_fullname))
@@ -220,6 +196,29 @@ function pipe_process_exprfunc(func_fullname, args, prev::Union{Symbol, Nothing}
     end
 end
 
+function transform_arg(arg::Expr, func_fullname, i::Union{Int, Nothing})
+    if arg isa Expr && arg.head == :parameters
+        # arg is multiple kwargs, with preceding ';'
+        Expr(arg.head, map(arg.args) do arg
+            transform_arg(arg, func_fullname, nothing)
+        end...)
+    elseif arg.head == :kw
+        # is a kwarg
+        @assert length(arg.args) == 2
+        key, value = arg.args
+        nargs = func_nargs(func_fullname, key)
+        Expr(:kw, key, func_or_body_to_func(value, nargs))
+    else
+        nargs = func_nargs(func_fullname, i)
+        func_or_body_to_func(arg, nargs)
+    end
+end
+
+function transform_arg(arg, func_fullname, i::Union{Int, Nothing})
+    nargs = func_nargs(func_fullname, i)
+    func_or_body_to_func(arg, nargs)
+end
+
 # check if therea re no "↑"s in args
 need_append_data_arg(args) = !any(args) do arg
     occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : ee == :↑, arg)
@@ -228,7 +227,8 @@ end
 # expected number of arguments in argix'th argument of func if this arg is a function itself
 # this sets the minimum, additional underscores always get converted to more arguments
 func_nargs(func, argix) = func_nargs(Val(unqualified_name(func)), argix)
-func_nargs(func::Val, argix) = 1  # so that _ is replaced everywhere
+func_nargs(func::Val, argix::Union{Int, Symbol, Nothing}) = func_nargs(func, Val(argix))
+func_nargs(func::Val, argix::Val) = 1  # so that _ is replaced everywhere
 func_nargs(func::Val{:mapmany}, argix::Val{2}) = 2
 func_nargs(func::Val{:product}, argix::Val{1}) = 2
 func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{3}) = 2
