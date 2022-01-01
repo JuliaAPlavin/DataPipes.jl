@@ -184,18 +184,28 @@ unqualified_name(e::Expr) = let
 end
 
 function pipe_process_exprfunc(func_fullname, args, prev::Union{Symbol, Nothing})
-    args_processed = map(enumerate(args)) do (i, arg)
+    args_processed = mapreduce(vcat, enumerate(args); init=[]) do (i, arg)
         if arg isa Expr && arg.head == :kw
-            # arg is a kwarg
+            # arg is a kwarg, without preceding ';'
             @assert length(arg.args) == 2
             key = arg.args[1]
             value = arg.args[2]
             nargs = func_nargs(func_fullname, key)
-            Expr(:kw, key, func_or_body_to_func(value, nargs))
+            [Expr(:kw, key, func_or_body_to_func(value, nargs))]
+        elseif arg isa Expr && arg.head == :parameters
+            # arg is multiple kwargs, with preceding ';'
+            map(arg.args) do arg
+                @assert arg.head == :kw
+                @assert length(arg.args) == 2
+                key = arg.args[1]
+                value = arg.args[2]
+                nargs = func_nargs(func_fullname, key)
+                Expr(:kw, key, func_or_body_to_func(value, nargs))
+            end
         else
             # arg is positional
             nargs = func_nargs(func_fullname, Val(i))
-            func_or_body_to_func(arg, nargs)
+            [func_or_body_to_func(arg, nargs)]
         end
     end
     if !isnothing(prev) && need_append_data_arg(args)

@@ -349,7 +349,31 @@ end
 
         @test (@pipe begin
             data
+            sort(; by=length(_.values))
+        end) == [
+            (name="C", values=[5, 6]),
+            (name="A B", values=[1, 2, 3, 4]),
+        ]
+
+        @test (@pipe begin
+            data
+            sort(↑; by=length(_.values))
+        end) == [
+            (name="C", values=[5, 6]),
+            (name="A B", values=[1, 2, 3, 4]),
+        ]
+
+        @test (@pipe begin
+            data
             sort(by=length(_.values), rev=true)
+        end) == [
+            (name="A B", values=[1, 2, 3, 4]),
+            (name="C", values=[5, 6]),
+        ]
+
+        @test (@pipe begin
+            data
+            sort(; by=length(_.values), rev=true)
         end) == [
             (name="A B", values=[1, 2, 3, 4]),
             (name="C", values=[5, 6]),
