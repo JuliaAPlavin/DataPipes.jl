@@ -1,5 +1,6 @@
 using SplitApplyCombine
 using DataPipes
+using DataPipes.Abbr
 using Test
 
 import CompatHelperLocal
@@ -22,6 +23,7 @@ end
         @test @pipe(data) == data
 
         @test @pipe(data, map(_.name)) == ["A B", "C"]
+        @test @p(data, map(_.name)) == ["A B", "C"]
 
         @test (@pipe begin
             data
@@ -151,6 +153,14 @@ end
         @test (@pipe begin
             data
             map((;_.name, values=@pipe(_1.values |> map(_^2))))
+        end) == [
+            (name="A B", values=[1, 4, 9, 16]),
+            (name="C", values=[25, 36]),
+        ]
+
+        @test (@pipe begin
+            data
+            map((;_.name, values=@p(_1.values |> map(_^2))))
         end) == [
             (name="A B", values=[1, 4, 9, 16]),
             (name="C", values=[25, 36]),

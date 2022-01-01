@@ -138,7 +138,7 @@ func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{3}) = 2
 func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{4}) = 2
 
 is_pipecall(e) = false
-is_pipecall(e::Expr) = e.head == :macrocall && e.args[1] == Symbol("@pipe")
+is_pipecall(e::Expr) = e.head == :macrocall && e.args[1] ∈ (Symbol("@pipe"), Symbol("@p"))
 
 function func_or_body_to_func(e, nargs::Int, data::Symbol)
     args = [gensym("x_$i") for i in 1:nargs]
