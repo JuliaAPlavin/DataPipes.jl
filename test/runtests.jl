@@ -518,6 +518,15 @@ end
             data
             (↑)[1].values[1]
         end) == 1
+        
+        @test (@pipe begin
+            (1, 2, 3)
+            NamedTuple{(:a, :b, :c)}()
+        end) == (a=1, b=2, c=3)
+        @test (@pipe begin
+            (1, 2, 3)
+            NamedTuple{(:a, :b, :c)}(↑)
+        end) == (a=1, b=2, c=3)
 
         @test_throws MethodError (@pipe begin
             a = 1:5

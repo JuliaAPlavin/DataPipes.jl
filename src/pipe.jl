@@ -173,9 +173,14 @@ assigned_names(lhs::Expr) = (
 # un-qualify name, e.g. :map -> :map, :(Base.map) -> :map
 unqualified_name(e::Symbol) = e
 unqualified_name(e::Expr) = let
-    @assert e.head == :.
-    @assert length(e.args) == 2
-    return e.args[2].value
+    if e.head == :.
+        # qualified function name, eg :(Base.map)
+        @assert length(e.args) == 2
+        return e.args[2].value
+    else
+        # any other expression: cannot "unqualify"
+        nothing
+    end
 end
 
 function pipe_process_exprfunc(func_fullname, args, prev::Union{Symbol, Nothing})
