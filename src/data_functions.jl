@@ -1,4 +1,6 @@
-mapmany(f_out, f_in, A) = [
+import SplitApplyCombine: mapmany
+
+mapmany(f_out::Function, f_in::Function, A) = [
 	f_in(a, b)
 	for a in A
     for b in f_out(a)]

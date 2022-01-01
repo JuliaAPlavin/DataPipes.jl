@@ -104,6 +104,7 @@ end
 
 func_nargs(func, argix) = 1
 func_nargs(func::Val{:mapmany}, argix::Val{2}) = 2
+func_nargs(func::Val{:product}, argix::Val{1}) = 2
 
 is_pipecall(e) = false
 is_pipecall(e::Expr) = e.head == :macrocall && e.args[1] == Symbol("@pipe")

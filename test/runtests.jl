@@ -1,3 +1,4 @@
+using SplitApplyCombine
 using DataPipes
 using Test
 
@@ -182,6 +183,35 @@ CompatHelperLocal.@check()
             mutate_(parts=split(_.name), fname=_.parts[1])
             map(_.fname)
         end) == ["A", "C"]
+    end
+
+    @testset "SAC funcs" begin
+        @test (@pipe begin
+            data
+            mapmany(_.values, __)
+            group(_ % 2)
+            pairs()
+            collect()
+        end) == [1 => [1, 3, 5], 0 => [2, 4, 6]]
+
+        @test (@pipe begin
+            data
+            mapmany(_.values, __)
+            group(_ % 2)
+            map(_[end])
+            pairs()
+            collect()
+        end) == [1 => 5, 0 => 6]
+
+        @test (@pipe begin
+            data
+            mapview(_.name)
+        end) == ["A B", "C"]
+
+        @test (@pipe begin
+            data
+            product(_ + length(__.values), [0, 1, 2])
+        end) == [4 2; 5 3; 6 4]
     end
 
     @testset "keeping expr as-is" begin
