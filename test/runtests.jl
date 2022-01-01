@@ -90,12 +90,17 @@ end
             first(first(↑).values)
         end) == 1
 
-        @test_broken (@pipe begin
+        @test (@pipe begin
+            data
+            ↑
+        end) == data
+
+        @test (@pipe begin
             data
             (↑)[1]
-        end)
+        end) == (name = "A B", values = [1, 2, 3, 4])
 
-        @test_broken (@pipe begin
+        @test (@pipe begin
             data
             (↑)[1].values[1]
         end) == 1
@@ -120,7 +125,18 @@ end
         @test data |> @pipefunc(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
         @test @pipe(data) |> @pipefunc(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
         @test @pipe(data, map(_.name)) |> @pipefunc(map(_^2)) == ["A BA B", "CC"]
-        @test_broken @pipe(map(_.name, data)) == ["A B", "C"]
+        @test @pipe(begin
+            data
+            map(@pipe(_1))
+        end) == [(name = "A B", values = [1, 2, 3, 4]), (name = "C", values = [5, 6])]
+        @test @pipe(begin
+            data
+            map(@pipe(_1.name))
+        end) == ["A B", "C"]
+        @test @pipe(begin
+            data
+            map(@pipe(_1.name, collect, map(string(_)^2), join(↑, "")))
+        end) == ["AA  BB", "CC"]
     end
 
     @testset "nested pipes" begin

@@ -1,12 +1,8 @@
 macro asis(expr)
-    if occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : ee == :↑, expr)
-        data = gensym("data")
-        body = prewalk(expr) do ee
-            is_pipecall(ee) && return StopWalk(ee)
-            ee == :↑ && return data
-            return ee
-        end
-        :($(esc(data)) -> $(esc(body)))
+    data = gensym("data")
+    expr_replaced = replace_in_pipeexpr(expr, Dict(:↑ => data))
+    if expr_replaced != expr
+        :($(esc(data)) -> $(esc(expr_replaced)))
     else
         esc(expr)
     end
@@ -31,7 +27,8 @@ end
 
 function pipe_macro(block)
     exprs = get_exprs(block)
-    exprs_processed = filter(!isnothing, map(pipe_process_expr, exprs))
+    exprs = filter(e -> !(e isa LineNumberNode), exprs)
+    exprs_processed = map(pipe_process_expr, exprs)
     quote
         exprs = ($(exprs_processed...),)
         foldl(|>, exprs)
@@ -40,7 +37,8 @@ end
 
 function pipefunc_macro(block)
     exprs = get_exprs(block)
-    exprs_processed = filter(!isnothing, map(pipe_process_expr, exprs))
+    exprs = filter(e -> !(e isa LineNumberNode), exprs)
+    exprs_processed = map(pipe_process_expr, exprs)
     quote
         exprs = ($(exprs_processed...),)
         data -> foldl(|>, exprs, init=data)
@@ -65,20 +63,22 @@ elseif block.head == :call
     # single function call
     [block]
 else
-    throw("Unknown block head: $(block.head)")
+    # everything else
+    [block]
 end
 
 is_func_expr(e) = false
 is_func_expr(e::Expr) = e.head == :(->)
 
-pipe_process_expr(e::LineNumberNode) = nothing
-pipe_process_expr(e::Symbol) = esc(e)
+pipe_process_expr(e::Symbol) = e == :↑ ? :(identity) : esc(e)
 pipe_process_expr(e::Union{String, Number}) = e
 function pipe_process_expr(e::Expr)
     if e.head == :call
         fname = e.args[1]
         data = gensym("data")
-        :($(esc(data)) -> $(pipe_process_exprfunc(Val(func_name(fname)), fname, e.args[2:end], data) |> esc))
+        body = pipe_process_exprfunc(Val(func_name(fname)), fname, e.args[2:end], data)
+        e = :($(esc(data)) -> $(esc(body)))
+        e = replace_in_pipeexpr(e, Dict(:↑ => data))
     elseif e.head == :do
         @assert length(e.args) == 2
         @assert e.args[1].head == :call
@@ -86,9 +86,17 @@ function pipe_process_expr(e::Expr)
         @assert e.args[2].head == :(->)
         body = e.args[2]
         data = gensym("data")
-        :($(esc(data)) -> $(pipe_process_exprfunc(Val(func_name(fname)), fname, [body], data) |> esc))
+        body = pipe_process_exprfunc(Val(func_name(fname)), fname, [body], data)
+        e = :($(esc(data)) -> $(esc(body)))
+        e = replace_in_pipeexpr(e, Dict(:↑ => data))
     else
-        esc(e)
+        data = gensym("data")
+        e_replaced = replace_in_pipeexpr(e, Dict(:↑ => data))
+        if e_replaced != e
+            :($(esc(data)) -> $(esc(e_replaced)))
+        else
+            esc(e)
+        end
     end
 end
 
@@ -141,15 +149,14 @@ function func_or_body_to_func(e, nargs::Int, data::Symbol)
             throw("Unknown all-underscore variable `$(ee)` in pipe. Too many underscores?")
         end
     end
-    e = replace_in_pipeexpr(e, Dict(:↑ => data))
-    if occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : haskey(syms_replacemap, ee), e)
-        body = replace_in_pipeexpr(e, syms_replacemap)
-        if body isa Expr && body.head == :(->)
+    e_replaced = replace_in_pipeexpr(e, syms_replacemap)
+    if e_replaced != e
+        if e_replaced isa Expr && e_replaced.head == :(->)
             # already a function definition
-            body
+            e_replaced
         else
             # just function body, need to turn into definition
-            :(($(args...),) -> $body)
+            :(($(args...),) -> $e_replaced)
         end
     else
         e
