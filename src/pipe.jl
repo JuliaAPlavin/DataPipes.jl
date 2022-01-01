@@ -8,7 +8,7 @@ macro asis(expr)
         end
         :($(esc(data)) -> $(esc(body)))
     else
-        expr
+        esc(expr)
     end
 end
 
@@ -73,6 +73,7 @@ is_func_expr(e::Expr) = e.head == :(->)
 
 pipe_process_expr(e::LineNumberNode) = nothing
 pipe_process_expr(e::Symbol) = esc(e)
+pipe_process_expr(e::String) = e
 function pipe_process_expr(e::Expr)
     if e.head == :call
         fname = func_name(e.args[1])

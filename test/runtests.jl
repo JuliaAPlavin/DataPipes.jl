@@ -292,6 +292,21 @@ CompatHelperLocal.@check()
             @asis map(x -> length(x.values) > 3, ↑)
         end) == [true, false]
 
+        let
+            g(x) = length(x.values)
+            @test (@pipe begin
+                data
+                @asis map(g, ↑)
+            end) == [4, 2]
+        end
+
+        let
+            h(x) = length(x)
+            @test (@pipe begin
+                @asis h(data)
+            end) == 2
+        end
+
         @test_throws ErrorException @eval(@pipe begin
             data
             @asis map(length(_.values) > 3, ↑)
