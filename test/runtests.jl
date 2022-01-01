@@ -275,7 +275,7 @@ end
 
         @test (@pipe begin
             data
-            mutate_(fname=split(_.name)[1])
+            mutate_seq(fname=split(_.name)[1])
         end) == [
             (name="A B", values=[1, 2, 3, 4], fname="A"),
             (name="C", values=[5, 6], fname="C"),
@@ -283,13 +283,13 @@ end
 
         @test (@pipe begin
             data
-            mutate_(parts=split(_.name), fname=_.parts[1])
+            mutate_seq(parts=split(_.name), fname=_.parts[1])
             map(_.fname)
         end) == ["A", "C"]
 
         f = data -> @pipe begin
             data
-            mutate_(parts=split(_.name), fname=_.parts[1])
+            mutate_seq(parts=split(_.name), fname=_.parts[1])
             map(_.fname)
         end
         @test @inferred(f(data)) == ["A", "C"]
@@ -298,6 +298,11 @@ end
         @test @pipe(data, map(Val(:name))) == ["A B", "C"]
         f = data -> @pipe(data, map(Val(:name)))
         @test @inferred(f(data)) == ["A B", "C"]
+
+        @test @pipe([(a=1, b=(c=2, d=3))] |> mutate_rec((;b=_.a))) == [(a=1, b=1)]
+        @test @pipe([(a=1, b=(c=2, d=3))] |> mutate_rec((;b=(;c=_.a)))) == [(a=1, b=(c=1, d=3))]
+        @test @pipe([(a=1, b=(c=2, d=3))] |> mutate_rec((;b=(;x=_.a)))) == [(a=1, b=(c=2, d=3, x=1))]
+        # @test_broken @pipe([(a=1, b=(c=2, d=3))] |> mutate(b.c=_.a))
     end
 
     @testset "SAC funcs" begin
