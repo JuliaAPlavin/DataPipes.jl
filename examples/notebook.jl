@@ -188,14 +188,6 @@ The `begin-end` form is completely equivalent, and tends to be more convenient f
 	map(_.name)
 end
 
-# ╔═╡ e61f8f68-da67-4088-a729-1f67a58588fc
-md"""
-Sometimes the previous result is not needed at all. Decorate such steps with the `@_` macro:
-"""
-
-# ╔═╡ 745190fd-839b-4d4d-af27-a3057ff4f957
-
-
 # ╔═╡ 39fb4ecf-4692-4b91-9870-a103a0f797c1
 
 
@@ -595,8 +587,6 @@ uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
 # ╠═959705f3-36ad-4a0e-8e59-8b62ab2c21b3
 # ╟─c073fa33-7911-464e-98fc-9c76d603b2fb
 # ╠═fe60a93a-2e86-43e5-ad35-b854fc522db6
-# ╟─e61f8f68-da67-4088-a729-1f67a58588fc
-# ╠═745190fd-839b-4d4d-af27-a3057ff4f957
 # ╠═39fb4ecf-4692-4b91-9870-a103a0f797c1
 # ╟─39f6423b-2846-4a85-9047-d937c11b46ec
 # ╠═91dbd9a0-7bbe-44d2-8e46-bf9f38a83b85
