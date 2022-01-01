@@ -73,12 +73,12 @@ is_func_expr(e::Expr) = e.head == :(->)
 
 pipe_process_expr(e::LineNumberNode) = nothing
 pipe_process_expr(e::Symbol) = esc(e)
-pipe_process_expr(e::String) = e
+pipe_process_expr(e::Union{String, Number}) = e
 function pipe_process_expr(e::Expr)
     if e.head == :call
-        fname = func_name(e.args[1])
+        fname = e.args[1]
         data = gensym("data")
-        :($(esc(data)) -> $(pipe_process_exprfunc(Val(fname), e.args[2:end], data) |> esc))
+        :($(esc(data)) -> $(pipe_process_exprfunc(Val(func_name(fname)), fname, e.args[2:end], data) |> esc))
     elseif e.head == :do
         @assert length(e.args) == 2
         @assert e.args[1].head == :call
@@ -86,7 +86,7 @@ function pipe_process_expr(e::Expr)
         @assert e.args[2].head == :(->)
         body = e.args[2]
         data = gensym("data")
-        :($(esc(data)) -> $(pipe_process_exprfunc(Val(fname), [body], data) |> esc))
+        :($(esc(data)) -> $(pipe_process_exprfunc(Val(func_name(fname)), fname, [body], data) |> esc))
     else
         esc(e)
     end
@@ -99,23 +99,23 @@ func_name(e::Expr) = let
     return e.args[2].value
 end
 
-function pipe_process_exprfunc(func, args, data)
+function pipe_process_exprfunc(func_short::Val, func_full, args, data)
     args_processed = map(enumerate(args)) do (i, arg)
         if arg isa Expr && arg.head == :kw
             @assert length(arg.args) == 2
             key = arg.args[1]
             value = arg.args[2]
-            nargs = func_nargs(func, key)
+            nargs = func_nargs(func_short, key)
             Expr(:kw, key, func_or_body_to_func(value, nargs, data))
         else
-            nargs = func_nargs(func, Val(i))
+            nargs = func_nargs(func_short, Val(i))
             func_or_body_to_func(arg, nargs, data)
         end
     end
     if need_append_data_arg(args)
-        :( $(val(func))($(args_processed...), $data) )
+        :( $(func_full)($(args_processed...), $data) )
     else
-        :( $(val(func))($(args_processed...)) )
+        :( $(func_full)($(args_processed...)) )
     end
 end
 

@@ -6,6 +6,11 @@ import CompatHelperLocal
 CompatHelperLocal.@check()
 
 
+module MyModule
+myfunc(x) = 2x
+end
+
+
 @testset begin
     data = [
         (name="A B", values=[1, 2, 3, 4]),
@@ -73,6 +78,41 @@ CompatHelperLocal.@check()
             data
             map("abc $(_.name)")
         end) == ["abc A B", "abc C"]
+
+        @test (@pipe begin
+            data
+            first()
+            first((↑).values)
+        end) == 1
+
+        @test (@pipe begin
+            data
+            first(first(↑).values)
+        end) == 1
+
+        @test_broken (@pipe begin
+            data
+            (↑)[1]
+        end)
+
+        @test_broken (@pipe begin
+            data
+            (↑)[1].values[1]
+        end) == 1
+
+        @test (@pipe begin
+            123
+        end) == 123
+
+        @test (@pipe begin
+            123
+            MyModule.myfunc()
+        end) == 246
+
+        @test (@pipe begin
+            [123, 321]
+            map(MyModule.myfunc)
+        end) == [246, 642]
     end
 
     @testset "composable pipe" begin
