@@ -85,18 +85,28 @@ function process_pipe_step(e, state)
     return e, state
 end
 
-transform_pipe_step(e, prev) = e
-
+# symbol as the first pipeline step: keep as-is
 transform_pipe_step(e::Symbol, prev::Nothing) = e
+# symbol as latter pipeline steps: generally represents a function call
 transform_pipe_step(e::Symbol, prev::Symbol) = e == :↑ ? prev : :($(e)($(prev)))
+function transform_pipe_step(e, prev::Union{Symbol, Nothing})
+    fcall = dissect_function_call(e)
+    if !isnothing(fcall)
+        args_processed = transform_args(fcall.funcname, fcall.args)
+        args_processed = add_prev_arg_if_needed(fcall.funcname, args_processed, prev)
+        :( $(fcall.funcname)($(args_processed...)) )
+    else
+        # pipe step not a function call: keep it as-is
+        e
+    end
+end
 
-function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing})
+dissect_function_call(e) = nothing
+dissect_function_call(e::Symbol) = @assert false
+function dissect_function_call(e::Expr)
     if e.head == :call
         # regular function call: map(a, b)
-        fname = e.args[1]
-        args = e.args[2:end]
-        args_processed = transform_args(fname, args)
-        add_prev_arg_if_needed(fname, args_processed, prev)
+        (funcname=e.args[1], args=e.args[2:end])
     elseif e.head == :do
         # do-call: map(a) do ... end
         @assert length(e.args) == 2  # TODO: any issues with supporting more args?
@@ -104,12 +114,26 @@ function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing})
         @assert e.args[2].head == :(->)
         fname = e.args[1].args[1]
         args = [e.args[2:end]..., e.args[1].args[2:end]...]  # do-arg first, then all args from within the call
-        args_processed = transform_args(fname, args)
-        add_prev_arg_if_needed(fname, args_processed, prev)
+        (funcname=fname, args)
     else
         # anything else
         # e.g., a[b], macro call, what else?
-        e
+        nothing
+    end
+end
+
+add_prev_arg_if_needed(func_fullname, args, prev::Nothing) = args
+function add_prev_arg_if_needed(func_fullname, args, prev)
+    # check if there are any "↑"s in args
+    need_to_append = !any(args) do arg
+        occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : ee == :↑, arg)
+    end
+    if need_to_append
+        name = string(unqualified_name(func_fullname))
+        isletter(name[1]) || @warn "Pipeline step top-level function is an operator. An argument with the previous step results is still appended." func=name args
+        [args; [prev]]
+    else
+        args
     end
 end
 
@@ -185,15 +209,6 @@ unqualified_name(e::Expr) = let
     end
 end
 
-add_prev_arg_if_needed(func_fullname, args, prev::Nothing) = :( $(func_fullname)($(args...)) )
-add_prev_arg_if_needed(func_fullname, args, prev) = if need_append_data_arg(args)
-    name = string(unqualified_name(func_fullname))
-    isletter(name[1]) || @warn "Pipeline step top-level function is an operator. An argument with the previous step results is still appended." func=name args
-    :( $(func_fullname)($(args...), $prev) )
-else
-    :( $(func_fullname)($(args...)) )
-end
-
 transform_args(func_fullname, args) = map(enumerate(args)) do (i, arg)
     transform_arg(arg, func_fullname, i)
 end
@@ -219,11 +234,6 @@ end
 function transform_arg(arg, func_fullname, i::Union{Int, Nothing})
     nargs = func_nargs(func_fullname, i)
     func_or_body_to_func(arg, nargs)
-end
-
-# check if therea re no "↑"s in args
-need_append_data_arg(args) = !any(args) do arg
-    occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : ee == :↑, arg)
 end
 
 # expected number of arguments in argix'th argument of func if this arg is a function itself
