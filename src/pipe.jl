@@ -10,18 +10,26 @@ function pipe_macro(block)
     # dump(block, maxdepth=20)
     exprs = get_exprs(block)
     exprs_processed = filter(!isnothing, map(pipe_process_expr, exprs))
-    res_expr = quote
-        exprs = [$(exprs_processed...)]
-        foldl(|>, exprs)
+    if is_func_expr(first(exprs_processed))
+        quote
+            exprs = [$(exprs_processed...)]
+            data -> foldl(|>, exprs, init=data)
+        end
+    else
+        quote
+            exprs = [$(exprs_processed...)]
+            foldl(|>, exprs)
+        end
     end
 end
 
 get_exprs(block::Symbol) = [block]
 get_exprs(block::Tuple) = block
 get_exprs(block::Expr) = if block.head == :block
+    # block like `begin ... end`
     block.args
-elseif block.head == :call
-    @assert block.args[1] == :(|>)
+elseif block.head == :call && block.args[1] == :(|>)
+    # piped functions like `a |> f1 |> f2`
     exprs = []
     while block isa Expr && block.head == :call && block.args[1] == :(|>)
         pushfirst!(exprs, block.args[3])
@@ -29,9 +37,15 @@ elseif block.head == :call
     end
     pushfirst!(exprs, block)
     exprs
+elseif block.head == :call
+    # single function call
+    [block]
 else
     throw("Unknown block head: $(block.head)")
 end
+
+is_func_expr(e) = false
+is_func_expr(e::Expr) = e.head == :(->)
 
 pipe_process_expr(e::LineNumberNode) = nothing
 pipe_process_expr(e::Symbol) = esc(e)
@@ -53,7 +67,7 @@ function pipe_process_expr(e::Expr)
     end
 end
 
-function pipe_process_exprfunc(func::Val{:map}, args, data)
+function pipe_process_exprfunc(func::Union{Val{:map}, Val{:filter}, Val{:filter!}}, args, data)
     @assert length(args) == 1
     :( $(val(func))($(func_or_body_to_func(args[1], 1)), $data) )
 end

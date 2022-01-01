@@ -11,90 +11,115 @@ CompatHelperLocal.@check()
         (name="C", values=[5, 6]),
     ]
 
-    @test @pipe(data) == data
+    @testset "simple" begin
+        @test @pipe(data) == data
 
-    @test @pipe(data, map(_.name)) == ["A B", "C"]
+        @test @pipe(data, map(_.name)) == ["A B", "C"]
 
-    @test (@pipe begin
-        data
-        map(_.name)
-    end) == ["A B", "C"]
-
-    @test let
-        f(x) = x^2
-        @pipe begin
+        @test (@pipe begin
             data
-            map(f(_.name))
-        end
-    end == ["A BA B", "CC"]
+            map(_.name)
+        end) == ["A B", "C"]
 
-    @test (@pipe begin
-        data
-        map((;_.name))
-    end) == [(name="A B",), (name="C",)]
+        @test let
+            f(x) = x^2
+            @pipe begin
+                data
+                map(f(_.name))
+            end
+        end == ["A BA B", "CC"]
 
-    @test (@pipe begin
-        data
-        map(x -> (;x.name, values=123))
-    end) == [
-        (name="A B", values=123),
-        (name="C", values=123),
-    ]
+        @test (@pipe begin
+            data
+            map((;_.name))
+        end) == [(name="A B",), (name="C",)]
 
-    @test let
-        x = (;values=1:3)
-        @pipe(x.values |> map(_^2))
-    end == [1, 4, 9]
+        @test (@pipe begin
+            data
+            map(x -> (;x.name, values=123))
+        end) == [
+            (name="A B", values=123),
+            (name="C", values=123),
+        ]
 
-    @test (@pipe begin
-        data
-        map("abc $(_.name)")
-    end) == ["abc A B", "abc C"]
+        @test let
+            x = (;values=1:3)
+            @pipe(x.values |> map(_^2))
+        end == [1, 4, 9]
 
-    @test (@pipe begin
-        data
-        map(x -> (;x.name, values=@pipe(x.values |> map(_^2))))
-    end) == [
-        (name="A B", values=[1, 4, 9, 16]),
-        (name="C", values=[25, 36]),
-    ]
+        @test (@pipe begin
+            data
+            map("abc $(_.name)")
+        end) == ["abc A B", "abc C"]
+    end
 
-    @test (@pipe begin
-        data
-        map((;_.name, values=@pipe(_1.values |> map(_^2))))
-    end) == [
-        (name="A B", values=[1, 4, 9, 16]),
-        (name="C", values=[25, 36]),
-    ]
+    @testset "composable pipe" begin
+        @test data |> @pipe(map(_.name)) == ["A B", "C"]
+        @test data |> @pipe(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
+        @test @pipe(data) |> @pipe(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
+        @test @pipe(data, map(_.name)) |> @pipe(map(_^2)) == ["A BA B", "CC"]
+    end
 
-    @test (@pipe begin
-        data
-        map((;_.name, values=@pipe(_1.values |> map(_^2) |> map((n=_1.name, v=_)))))
-    end) == [
-        (name="A B", values=[(n="A B", v=1), (n="A B", v=4), (n="A B", v=9), (n="A B", v=16)]),
-        (name="C", values=[(n="C", v=25), (n="C", v=36)]),
-    ]
+    @testset "nested pipes" begin
+        @test (@pipe begin
+            data
+            map(x -> (;x.name, values=@pipe(x.values |> map(_^2))))
+        end) == [
+            (name="A B", values=[1, 4, 9, 16]),
+            (name="C", values=[25, 36]),
+        ]
 
-    @test (@pipe begin
-        data
-        sort(by=length(_.values))
-    end) == [
-        (name="C", values=[5, 6]),
-        (name="A B", values=[1, 2, 3, 4]),
-    ]
+        @test (@pipe begin
+            data
+            map((;_.name, values=@pipe(_1.values |> map(_^2))))
+        end) == [
+            (name="A B", values=[1, 4, 9, 16]),
+            (name="C", values=[25, 36]),
+        ]
 
-    @test (@pipe begin
-        data
-        mapmany(_.values, __)
-    end) == [1, 2, 3, 4, 5, 6]
+        @test (@pipe begin
+            data
+            map((;_.name, values=@pipe(_1.values |> map(_^2) |> map((n=_1.name, v=_)))))
+        end) == [
+            (name="A B", values=[(n="A B", v=1), (n="A B", v=4), (n="A B", v=9), (n="A B", v=16)]),
+            (name="C", values=[(n="C", v=25), (n="C", v=36)]),
+        ]
+    end
 
-    @test (@pipe begin
-        data
-        mapmany(_.values, (; _.name, value=__^2))
-    end) == [
-        (name="A B", value=1), (name="A B", value=4), (name="A B", value=9), (name="A B", value=16),
-        (name="C", value=25), (name="C", value=36)
-    ]
+    @testset "other funcs" begin
+        @test (@pipe begin
+            data
+            filter(length(_.values) > 3)
+        end) == [(name="A B", values=[1, 2, 3, 4])]
+
+        data_copy = copy(data)
+        @test (@pipe begin
+            data_copy
+            filter!(length(_.values) > 3)
+        end) == [(name="A B", values=[1, 2, 3, 4])]
+        @test data_copy == [(name="A B", values=[1, 2, 3, 4])]
+
+        @test (@pipe begin
+            data
+            sort(by=length(_.values))
+        end) == [
+            (name="C", values=[5, 6]),
+            (name="A B", values=[1, 2, 3, 4]),
+        ]
+
+        @test (@pipe begin
+            data
+            mapmany(_.values, __)
+        end) == [1, 2, 3, 4, 5, 6]
+
+        @test (@pipe begin
+            data
+            mapmany(_.values, (; _.name, value=__^2))
+        end) == [
+            (name="A B", value=1), (name="A B", value=4), (name="A B", value=9), (name="A B", value=16),
+            (name="C", value=25), (name="C", value=36)
+        ]
+    end
 
     @testset "errors" begin
         @test_throws UndefVarError @pipe begin
