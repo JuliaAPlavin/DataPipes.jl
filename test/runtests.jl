@@ -140,6 +140,11 @@ end
             data
             map(@pipe(_1.name, collect, map(string(_)^2), join(↑, "")))
         end) == ["AA  BB", "CC"]
+
+        @test_broken @pipe(begin
+            data
+            map(@pipe(_1.name, collect, map(@pipe(_1, string, _^2)), join(↑, "")))
+        end) == ["AA  BB", "CC"]
     end
 
     @testset "nested pipes" begin
@@ -425,6 +430,18 @@ end
             @asis val^2
         end) == 256
         @test val == 16 && ix == 4
+
+        # test that defining variables beforehand is not required; for some reason, only works in a function
+        f = () -> begin
+            r = @pipe begin
+                [1, 2, 3, 4]
+                map(_^2)
+                @export val1, ix1 = findmax()
+                @asis val1^2
+            end
+            return r, val1, ix1
+        end
+        @test f() == (256, 16, 4)
     end
 
     @testset "errors" begin
