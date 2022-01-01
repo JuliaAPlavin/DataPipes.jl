@@ -66,8 +66,10 @@ function process_pipe_step(e, state)
     assign_lhs, e, assigns = split_assignment(e)
     next = gensym("res")
     e, keep_asis = process_asis(e)
+    e, add_prev = process_noprev(e)
     if !keep_asis
-        e = transform_pipe_step(e, state.prev)
+        e = transform_pipe_step(e, add_prev ? state.prev : nothing)
+        e = replace_in_pipeexpr(e, Dict(:↑ => state.prev))
     end
     e = if isnothing(assign_lhs)
         :($(esc(next)) = $(esc(e)))
@@ -86,7 +88,7 @@ transform_pipe_step(e::Symbol, prev::Nothing) = e
 transform_pipe_step(e::Symbol, prev::Symbol) = e == :↑ ? prev : :($(e)($(prev)))
 
 function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing})
-    e_processed = if e.head == :call
+    if e.head == :call
         # regular function call: map(a, b)
         fname = e.args[1]
         pipe_process_exprfunc(fname, e.args[2:end], prev)
@@ -102,7 +104,6 @@ function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing})
         # e.g., a[b], macro call, what else?
         e
     end
-    return replace_in_pipeexpr(e_processed, Dict(:↑ => prev))
 end
 
 process_exports(x) = x, []
@@ -142,6 +143,26 @@ function process_asis(expr::Expr)
         return proc_f(e)
     end
     expr, asis
+end
+
+process_noprev(x) = x, true
+function process_noprev(expr::Expr)
+    add_prev = true
+    proc_f(x) = x
+    proc_f(e::Expr) = if e.head == :macrocall && e.args[1] == Symbol("@_")
+        msg = "Wrong @_ format"
+        @assert length(e.args) == 3  msg
+        @assert e.args[2] isa LineNumberNode  msg
+        add_prev = false
+        return e.args[3]
+    else
+        return e
+    end
+    expr = prewalk(expr) do e
+        is_pipecall(e) && return StopWalk(e)
+        return proc_f(e)
+    end
+    expr, add_prev
 end
 
 split_assignment(x) = nothing, x, []

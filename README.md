@@ -201,7 +201,31 @@ julia> @p begin
  (name = "C", values = [(n = "C", v = 25), (n = "C", v = 36)])
 ```
 
-Finally, it is possible to add a pipeline step that is kept as-is and not transformed by `DataPipes`. This is not supposed to be generally useful, but sometimes such an escape hatch makes sense. If that's the case, just wrap a step with `@asis`: no replacements are performed in this case.
+In complex pipelines, one may not always want to append the argument with results of the previous step:
+```julia
+julia> @p begin
+           a = [1, 2, 3]
+           b = [4, 5, 6]
+           c = [7, 8, 9]
+           map(_ + __, a, b)
+       end
+ERROR: MethodError: no method matching (::var"#61#62")(::Int64, ::Int64, ::Int64)
+```
+The solution is to decorate such a step with the `@_` macro: then, underscores are processed as usual, but no extra arguments get appended.
+```julia
+julia> @p begin
+           a = [1, 2, 3]
+           b = [4, 5, 6]
+           c = [7, 8, 9]
+           @_ map(_ + __, a, b)
+       end
+3-element Vector{Int64}:
+ 5
+ 7
+ 9
+```
+
+Finally, it is possible to keep a pipeline step as-is, not transformed by `DataPipes` at all. This is not supposed to be generally useful, but sometimes such an escape hatch makes sense. If that's the case, just wrap a step with `@asis`: no replacements are performed in this case.
 ```julia
 julia> @p begin
            a = [1, 2, 3, 4]

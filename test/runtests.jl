@@ -382,17 +382,17 @@ end
             @asis map((x, y) -> x + y, a, b)
         end) == [7, 9, 11, 13, 15]
 
-        # @test (@pipe begin
-        #     a = 1:5
-        #     @asis b = 6:10
-        #     @_ map(_ + __, a, b)
-        # end) == [7, 9, 11, 13, 15]
+        @test (@pipe begin
+            a = 1:5
+            @asis b = 6:10
+            @_ map(_ + __, a, b)
+        end) == [7, 9, 11, 13, 15]
 
-        # @test (@pipe begin
-        #     a = 1:5
-        #     @_ b = 6:10
-        #     @_ map(_ + __, a, b)
-        # end) == [7, 9, 11, 13, 15]
+        @test (@pipe begin
+            a = 1:5
+            @_ b = 6:10
+            @_ map(_ + __, a, b)
+        end) == [7, 9, 11, 13, 15]
 
         @test_throws MethodError (@pipe begin
             data
