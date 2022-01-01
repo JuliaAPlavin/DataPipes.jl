@@ -123,10 +123,10 @@ end
     end
 
     @testset "composable pipe" begin
-        @test data |> @pipefunc(map(_.name)) == ["A B", "C"]
-        @test data |> @pipefunc(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
-        @test @pipe(data) |> @pipefunc(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
-        @test @pipe(data, map(_.name)) |> @pipefunc(map(_^2)) == ["A BA B", "CC"]
+        # @test data |> @pipefunc(map(_.name)) == ["A B", "C"]
+        # @test data |> @pipefunc(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
+        # @test @pipe(data) |> @pipefunc(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
+        # @test @pipe(data, map(_.name)) |> @pipefunc(map(_^2)) == ["A BA B", "CC"]
         @test @pipe(begin
             data
             map(@pipe(_1))

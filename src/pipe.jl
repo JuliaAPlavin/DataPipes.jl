@@ -17,14 +17,6 @@ macro pipe(exprs...)
     pipe_macro(exprs)
 end
 
-macro pipefunc(block)
-    pipefunc_macro(block)
-end
-
-macro pipefunc(exprs...)
-    pipefunc_macro(exprs)
-end
-
 function pipe_macro(block)
     exprs = get_exprs(block)
     exprs = filter(e -> !(e isa LineNumberNode), exprs)
@@ -32,16 +24,6 @@ function pipe_macro(block)
     quote
         exprs = ($(exprs_processed...),)
         foldl(|>, exprs)
-    end
-end
-
-function pipefunc_macro(block)
-    exprs = get_exprs(block)
-    exprs = filter(e -> !(e isa LineNumberNode), exprs)
-    exprs_processed = map(pipe_process_expr, exprs)
-    quote
-        exprs = ($(exprs_processed...),)
-        data -> foldl(|>, exprs, init=data)
     end
 end
 

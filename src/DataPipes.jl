@@ -7,10 +7,9 @@ include("pipe.jl")
 include("data_functions.jl")
 
 module Abbr
-import ..@pipe, ..@pipefunc
+import ..@pipe
 const var"@p" = var"@pipe"
-const var"@pf" = var"@pipefunc"
-export @p, @pf
+export @p
 end
 
 end
