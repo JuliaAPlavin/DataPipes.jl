@@ -76,10 +76,11 @@ CompatHelperLocal.@check()
     end
 
     @testset "composable pipe" begin
-        @test data |> @pipe(map(_.name)) == ["A B", "C"]
-        @test data |> @pipe(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
-        @test @pipe(data) |> @pipe(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
-        @test @pipe(data, map(_.name)) |> @pipe(map(_^2)) == ["A BA B", "CC"]
+        @test data |> @pipefunc(map(_.name)) == ["A B", "C"]
+        @test data |> @pipefunc(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
+        @test @pipe(data) |> @pipefunc(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
+        @test @pipe(data, map(_.name)) |> @pipefunc(map(_^2)) == ["A BA B", "CC"]
+        @test_broken @pipe(map(_.name, data)) == ["A B", "C"]
     end
 
     @testset "nested pipes" begin

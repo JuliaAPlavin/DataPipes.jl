@@ -21,20 +21,29 @@ macro pipe(exprs...)
     pipe_macro(exprs)
 end
 
+macro pipefunc(block)
+    pipefunc_macro(block)
+end
+
+macro pipefunc(exprs...)
+    pipefunc_macro(exprs)
+end
+
 function pipe_macro(block)
-    # dump(block, maxdepth=20)
     exprs = get_exprs(block)
     exprs_processed = filter(!isnothing, map(pipe_process_expr, exprs))
-    if is_func_expr(first(exprs_processed))
-        quote
-            exprs = ($(exprs_processed...),)
-            data -> foldl(|>, exprs, init=data)
-        end
-    else
-        quote
-            exprs = ($(exprs_processed...),)
-            foldl(|>, exprs)
-        end
+    quote
+        exprs = ($(exprs_processed...),)
+        foldl(|>, exprs)
+    end
+end
+
+function pipefunc_macro(block)
+    exprs = get_exprs(block)
+    exprs_processed = filter(!isnothing, map(pipe_process_expr, exprs))
+    quote
+        exprs = ($(exprs_processed...),)
+        data -> foldl(|>, exprs, init=data)
     end
 end
 
