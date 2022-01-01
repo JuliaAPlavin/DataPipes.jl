@@ -18,7 +18,7 @@ macro pipe(exprs...)
 end
 
 Base.@kwdef mutable struct State
-    prev::Symbol
+    prev::Union{Symbol, Nothing}
     exports::Vector{Symbol}
     assigns::Vector{Symbol}
 end
@@ -26,7 +26,7 @@ end
 function pipe_macro(block)
     exprs = get_exprs(block)
     exprs_processed = []
-    state = nothing
+    state = State(nothing, [], [])
     for e in exprs
         ep, state = process_pipe_step(e, state)
         push!(exprs_processed, ep)
@@ -68,22 +68,24 @@ function process_pipe_step(e, state)
     e, exports = process_exports(e)
     assign_lhs, e, assigns = split_assignment(e)
     next = gensym("res")
-    e = isnothing(state) ? e : transform_pipe_step(e; state.prev, next)
+    e = transform_pipe_step(e, state.prev)
     e = if isnothing(assign_lhs)
         :($(esc(next)) = $(esc(e)))
     else
         :($(esc(next)) = $(esc(assign_lhs)) = $(esc(e)))
     end
-    state = something(state, State(:_, [], []))
     state.prev = next
     append!(state.exports, exports)
     append!(state.assigns, assigns)
     return e, state
 end
 
-transform_pipe_step(e::Symbol; prev::Symbol, next::Symbol) = e == :↑ ? prev : :($(e)($(prev)))
+transform_pipe_step(e, prev) = e
 
-function transform_pipe_step(e::Expr; prev::Symbol, next::Symbol)
+transform_pipe_step(e::Symbol, prev::Nothing) = e
+transform_pipe_step(e::Symbol, prev::Symbol) = e == :↑ ? prev : :($(e)($(prev)))
+
+function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing})
     e_processed = if e.head == :call
         # regular function call: map(a, b)
         fname = e.args[1]
@@ -149,7 +151,7 @@ unqualified_name(e::Expr) = let
     return e.args[2].value
 end
 
-function pipe_process_exprfunc(func_fullname, args, prev::Symbol)
+function pipe_process_exprfunc(func_fullname, args, prev::Union{Symbol, Nothing})
     args_processed = map(enumerate(args)) do (i, arg)
         if arg isa Expr && arg.head == :kw
             # arg is a kwarg
@@ -164,7 +166,7 @@ function pipe_process_exprfunc(func_fullname, args, prev::Symbol)
             func_or_body_to_func(arg, nargs)
         end
     end
-    if need_append_data_arg(args)
+    if !isnothing(prev) && need_append_data_arg(args)
         :( $(func_fullname)($(args_processed...), $prev) )
     else
         :( $(func_fullname)($(args_processed...)) )

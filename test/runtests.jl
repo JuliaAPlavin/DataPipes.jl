@@ -45,6 +45,8 @@ end
             end
         end) == ["A B", "C"]
 
+        @test (@pipe map(_.name, data)) == ["A B", "C"]
+
         @test let
             f(x) = x^2
             @pipe begin
