@@ -333,6 +333,7 @@ end
 
 " Replace function arg placeholders (like `_`) with corresponding symbols from `args`. Processes a single level of `@p` nesting. "
 replace_arg_placeholders(expr, args::Vector{Symbol}) = prewalk(expr) do ee
+    ignore_underscore_within(ee) && return StopWalk(ee)
     is_pipecall(ee) && return StopWalk(replace_arg_placeholders_within_inner_pipe(ee, args))
     is_arg_placeholder(ee) ? args[arg_placeholder_n(ee)] : ee
 end

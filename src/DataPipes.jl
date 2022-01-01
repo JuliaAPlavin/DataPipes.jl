@@ -38,6 +38,10 @@ outer_arg_placeholder_n(x::Symbol) = let
     return nothing
 end
 
+## expressions where DataPipes won't replace `_` placeholders with lambda argument
+ignore_underscore_within(e) = false
+ignore_underscore_within(e::Expr) = e.head == :macrocall && e.args[1] ∈ (Symbol("@optic"),)
+
 module NoAbbr
 import ..@pipe, ..@pipefunc
 export @pipe, @pipefunc

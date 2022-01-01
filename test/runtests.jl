@@ -1,6 +1,7 @@
 using SplitApplyCombine
 using DataPipes
 using Test
+using Accessors
 
 module MyModule
 myfunc(x) = 2x
@@ -544,6 +545,12 @@ end
             innerjoin(identity, identity, (_, _2), _ % 2 != _2 % 2, 1:3)
             sort()
         end) == [(2, 1), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 5), (1, 6), (3, 6)] |> sort
+    end
+
+    @testset "Accessors.jl" begin
+        @test (@p data |> map(@optic(_.name))) == ["A B", "C"]
+        @test (@p data |> map(@set(_.name = "newname")) |> map(_.name)) == ["newname", "newname"]
+        @test (@p data |> map(set(_, @optic(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
     end
 
     @testset "explicit arg" begin
