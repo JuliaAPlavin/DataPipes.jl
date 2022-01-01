@@ -1,3 +1,22 @@
+macro asis(expr)
+    if occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : ee == :↑, expr)
+        data = gensym("data")
+        body = prewalk(expr) do ee
+            if is_pipecall(ee)
+                StopWalk(ee)
+            elseif ee == :↑
+                data
+            else
+                ee
+            end
+        end
+        :($(esc(data)) -> $(esc(body)))
+    else
+        expr
+    end
+end
+
+
 macro pipe(block)
     pipe_macro(block)
 end

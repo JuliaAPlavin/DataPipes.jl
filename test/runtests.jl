@@ -121,6 +121,18 @@ CompatHelperLocal.@check()
         ]
     end
 
+    @testset "keeping exp as-is" begin
+        @test (@pipe begin
+            data
+            @asis map(x -> length(x.values) > 3, ↑)
+        end) == [true, false]
+
+        @test_throws ErrorException @eval(@pipe begin
+            data
+            @asis map(length(_.values) > 3, ↑)
+        end)
+    end
+
     @testset "errors" begin
         @test_throws UndefVarError @pipe begin
             data
