@@ -225,6 +225,27 @@ CompatHelperLocal.@check()
             data
             product(_ + length(__.values), [0, 1, 2])
         end) == [4 2; 5 3; 6 4]
+
+        @test (@pipe begin
+            data
+            mapmany(_.values, __)
+            innerjoin(_ % 2, 1 - _ % 2, (_, __), 1:3)
+            sort()
+        end) == [(2, 1), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 5), (1, 6), (3, 6)] |> sort
+
+        @test (@pipe begin
+            data
+            mapmany(_.values, __)
+            innerjoin(_ % 2, 1 - _ % 2, (_, __), _ == __, 1:3)
+            sort()
+        end) == [(2, 1), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 5), (1, 6), (3, 6)] |> sort
+
+        @test (@pipe begin
+            data
+            mapmany(_.values, __)
+            innerjoin(identity, identity, (_, __), _ % 2 != __ % 2, 1:3)
+            sort()
+        end) == [(2, 1), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 5), (1, 6), (3, 6)] |> sort
     end
 
     @testset "keeping expr as-is" begin

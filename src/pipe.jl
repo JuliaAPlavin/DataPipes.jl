@@ -105,6 +105,8 @@ end
 func_nargs(func, argix) = 1
 func_nargs(func::Val{:mapmany}, argix::Val{2}) = 2
 func_nargs(func::Val{:product}, argix::Val{1}) = 2
+func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{3}) = 2
+func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{4}) = 2
 
 is_pipecall(e) = false
 is_pipecall(e::Expr) = e.head == :macrocall && e.args[1] == Symbol("@pipe")
