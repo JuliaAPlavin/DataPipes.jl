@@ -157,6 +157,14 @@ CompatHelperLocal.@check()
             (name="A B", values=[1, 2, 3, 4], fname="A"),
             (name="C", values=[5, 6], fname="C"),
         ]
+
+        @test (@pipe begin
+            data
+            mutate(fname=split(_.name)[1])
+        end) == [
+            (name="A B", values=[1, 2, 3, 4], fname="A"),
+            (name="C", values=[5, 6], fname="C"),
+        ]
     end
 
     @testset "keeping exp as-is" begin
