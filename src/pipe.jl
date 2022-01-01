@@ -136,8 +136,16 @@ function process_exports(expr::Expr)
         @assert e.args[2] isa LineNumberNode  msg
         @assert e.args[3] isa Expr  msg
         @assert e.args[3].head == :(=)  msg
-        @assert e.args[3].args[1] isa Symbol  msg
-        push!(exports, e.args[3].args[1])
+        if e.args[3].args[1] isa Symbol
+            # single assingment: a = ...
+            push!(exports, e.args[3].args[1])
+        else
+            # multiple assignment: a, b, c = ...
+            @assert e.args[3].args[1] isa Expr  msg
+            @assert e.args[3].args[1].head == :tuple  msg
+            @assert all(a -> a isa Symbol, e.args[3].args[1].args)  msg
+            append!(exports, e.args[3].args[1].args)
+        end
         return e.args[3]
     else
         return e

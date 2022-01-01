@@ -391,7 +391,7 @@ end
         @test_throws UndefVarError filt
 
         # XXX: not needed in reality; tests fail without this for some reason
-        orig2 = orig3 = filt2 = nothing
+        orig2 = orig3 = filt2 = val = ix = nothing
 
         @test (@pipe begin
             @export orig2 = [1, 2, 3, 4]
@@ -409,6 +409,22 @@ end
         end) == 2.9
         @test orig3 == [1, 2, 3, 4]
         @test filt2 == [4, 9, 16]
+
+        @test (@pipe begin
+            [1, 2, 3, 4]
+            map(_^2)
+            val, ix = findmax()
+            @asis val^2
+        end) == 256
+        @test_broken val === nothing && ix === nothing
+
+        @test (@pipe begin
+            [1, 2, 3, 4]
+            map(_^2)
+            @export val, ix = findmax()
+            @asis val^2
+        end) == 256
+        @test val == 16 && ix == 4
     end
 
     @testset "errors" begin
