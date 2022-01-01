@@ -1,5 +1,9 @@
 module DataPipes
 
-greet() = print("Hello World!")
+export @pipe, mapmany
 
-end # module
+include("utils.jl")
+include("pipe.jl")
+include("data_functions.jl")
+
+end

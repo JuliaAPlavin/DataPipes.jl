@@ -1,0 +1,112 @@
+macro pipe(block)
+    pipe_macro(block)
+end
+
+macro pipe(exprs...)
+    pipe_macro(exprs)
+end
+
+function pipe_macro(block)
+    # dump(block, maxdepth=20)
+    exprs = get_exprs(block)
+    exprs_processed = filter(!isnothing, map(pipe_process_expr, exprs))
+    res_expr = quote
+        exprs = [$(exprs_processed...)]
+        foldl(|>, exprs)
+    end
+end
+
+get_exprs(block::Symbol) = [block]
+get_exprs(block::Tuple) = block
+get_exprs(block::Expr) = if block.head == :block
+    block.args
+elseif block.head == :call
+    @assert block.args[1] == :(|>)
+    exprs = []
+    while block isa Expr && block.head == :call && block.args[1] == :(|>)
+        pushfirst!(exprs, block.args[3])
+        block = block.args[2]
+    end
+    pushfirst!(exprs, block)
+    exprs
+else
+    throw("Unknown block head: $(block.head)")
+end
+
+pipe_process_expr(e::LineNumberNode) = nothing
+pipe_process_expr(e::Symbol) = esc(e)
+function pipe_process_expr(e::Expr)
+    if e.head == :call
+        fname = e.args[1]
+        data = gensym("data")
+        :($(esc(data)) -> $(pipe_process_exprfunc(Val(fname), e.args[2:end], data) |> esc))
+    elseif e.head == :do
+        @assert length(e.args) == 2
+        @assert e.args[1].head == :call
+        fname = e.args[1].args[1]
+        @assert e.args[2].head == :(->)
+        body = e.args[2]
+        data = gensym("data")
+        :($(esc(data)) -> $(pipe_process_exprfunc(Val(fname), [body], data) |> esc))
+    else
+        esc(e)
+    end
+end
+
+function pipe_process_exprfunc(func::Val{:map}, args, data)
+    @assert length(args) == 1
+    :( $(val(func))($(func_or_body_to_func(args[1], 1)), $data) )
+end
+
+function pipe_process_exprfunc(func::Val{:sort}, args, data)
+    kwargs = only(args)
+    @assert kwargs.head == :kw
+    @assert length(kwargs.args) == 2 && kwargs.args[1] == :by
+    :( $(val(func))(by=$(func_or_body_to_func(kwargs.args[2], 1)), $data) )
+end
+
+function pipe_process_exprfunc(func::Val{:mapmany}, args, data)
+    @assert length(args) == 2
+    :( $(val(func))($(func_or_body_to_func(args[1], 1)), $(func_or_body_to_func(args[2], 2)), $data) )
+end
+
+is_pipecall(e) = false
+is_pipecall(e::Expr) = e.head == :macrocall && e.args[1] == Symbol("@pipe")
+
+function func_or_body_to_func(e, nargs)
+    syms_replacemap = Dict(Symbol("_"^i) => gensym("x_$i") for i in 1:nargs)
+    prewalk(e) do ee
+        is_pipecall(ee) && return StopWalk(ee)
+        if ee isa Symbol && all(c == '_' for c in string(ee)) && !haskey(syms_replacemap, ee)
+            throw("Unknown all-underscore variable `$(ee)` in pipe. Too many underscores?")
+        end
+    end
+    if occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : haskey(syms_replacemap, ee), e)
+        body = prewalk(e) do ee
+            if is_pipecall(ee)
+                StopWalk(replace_within_inner_pipe(ee, syms_replacemap))
+            else
+                get(syms_replacemap, ee, ee)
+            end
+        end
+        if body isa Expr && body.head == :(->)
+            # already a function definition
+            body
+        else
+            # just function body, need to turn into definition
+            args = syms_replacemap |> values |> collect |> sort
+            :(($(args...),) -> $body)
+        end
+    else
+        e
+    end
+end
+
+replace_within_inner_pipe(expr, syms_replacemap) = prewalk(expr) do e
+    e isa Symbol || return e
+    m = match(r"^(_+)1$", string(e))
+    m != nothing && return syms_replacemap[Symbol(m[1])]
+    m = match(r"^(_+)(\d+)$", string(e))
+    m != nothing && return Symbol("$(m[1])$(parse(Int, m[2]) - 1)")
+    return e
+end
