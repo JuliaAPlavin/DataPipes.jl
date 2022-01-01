@@ -416,7 +416,7 @@ end
             val, ix = findmax()
             @asis val^2
         end) == 256
-        @test_broken val === nothing && ix === nothing
+        @test val === nothing && ix === nothing
 
         @test (@pipe begin
             [1, 2, 3, 4]

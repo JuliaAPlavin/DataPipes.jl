@@ -20,6 +20,7 @@ end
 Base.@kwdef mutable struct State
     prev::Symbol
     exports::Vector{Symbol}
+    assigns::Vector{Symbol}
 end
 
 function pipe_macro(block)
@@ -32,7 +33,7 @@ function pipe_macro(block)
         push!(exprs_processed, ep)
     end
     quote
-        ($(esc.([state.exports..., state.prev])...),) = let
+        ($(esc.([state.exports..., state.prev])...),) = let ($((state.assigns)...))
             $(exprs_processed...)
             ($(esc.([state.exports..., state.prev])...),)
         end
@@ -65,7 +66,7 @@ end
 
 function process_pipe_step(e, state)
     e, exports = process_exports(e)
-    assign_lhs, e = split_assignment(e)
+    assign_lhs, e, assigns = split_assignment(e)
     next = gensym("res")
     e = isnothing(state) ? e : transform_pipe_step(e; state.prev, next)
     e = if isnothing(assign_lhs)
@@ -73,9 +74,10 @@ function process_pipe_step(e, state)
     else
         :($(esc(next)) = $(esc(assign_lhs)) = $(esc(e)))
     end
-    state = something(state, State(:_, []))
+    state = something(state, State(:_, [], []))
     state.prev = next
     append!(state.exports, exports)
+    append!(state.assigns, assigns)
     return e, state
 end
 
@@ -140,13 +142,23 @@ function process_exports(expr::Expr)
     expr, exports
 end
 
-split_assignment(x) = nothing, x
+split_assignment(x) = nothing, x, []
 function split_assignment(expr::Expr)
     if expr.head == :(=)
         @assert length(expr.args) == 2  "Wrong assingment format"
-        return expr.args[1], expr.args[2]
+        assigns = if expr.args[1] isa Symbol
+            # single assingment: a = ...
+            [expr.args[1]]
+        else
+            # multiple assignment: a, b, c = ...
+            @assert expr.args[1] isa Expr  msg
+            @assert expr.args[1].head == :tuple  msg
+            @assert all(a -> a isa Symbol, expr.args[1].args)  msg
+            expr.args[1].args
+        end
+        return expr.args[1], expr.args[2], assigns
     else
-        return nothing, expr
+        return nothing, expr, []
     end
 end
 
