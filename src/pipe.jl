@@ -8,14 +8,10 @@ macro asis(expr)
     end
 end
 
-
-macro pipe(block)
-    pipe_macro(block)
-end
-
-macro pipe(exprs...)
-    pipe_macro(exprs)
-end
+macro pipe(block) pipe_macro(block) end
+macro pipe(exprs...) pipe_macro(exprs) end
+macro pipefunc(block) pipefunc_macro(block) end
+macro pipefunc(exprs...) pipefunc_macro(exprs) end
 
 Base.@kwdef mutable struct State
     prev::Union{Symbol, Nothing}
@@ -23,14 +19,14 @@ Base.@kwdef mutable struct State
     assigns::Vector{Symbol}
 end
 
+function pipefunc_macro(block)
+    arg = gensym("pipefuncarg")
+    exprs_processed, state = process_block(block, arg)
+    :( $(esc(arg)) -> $(exprs_processed...) )
+end
+
 function pipe_macro(block)
-    exprs = get_exprs(block)
-    exprs_processed = []
-    state = State(nothing, [], [])
-    for e in exprs
-        ep, state = process_pipe_step(e, state)
-        push!(exprs_processed, ep)
-    end
+    exprs_processed, state = process_block(block, nothing)
     quote
         ($(esc.([state.exports..., state.prev])...),) = let ($((state.assigns)...))
             $(exprs_processed...)
@@ -38,6 +34,17 @@ function pipe_macro(block)
         end
         $(esc(state.prev))
     end
+end
+
+function process_block(block, initial_arg)
+    exprs = get_exprs(block)
+    exprs_processed = []
+    state = State(initial_arg, [], [])
+    for e in exprs
+        ep, state = process_pipe_step(e, state)
+        push!(exprs_processed, ep)
+    end
+    return exprs_processed, state
 end
 
 get_exprs(block) = [block]
