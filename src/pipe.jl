@@ -33,7 +33,7 @@ function pipe_macro(block)
     end
 end
 
-get_exprs(block::Symbol) = [block]
+get_exprs(block) = [block]
 get_exprs(block::Tuple) = block
 get_exprs(block::Expr) = if block.head == :block
     # block like `begin ... end`

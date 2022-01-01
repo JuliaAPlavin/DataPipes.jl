@@ -20,6 +20,7 @@ end
     data_original = copy(data)
 
     @testset "simple" begin
+        @test @pipe(123) == 123
         @test @pipe(data) == data
 
         @test @pipe(data, map(_.name)) == ["A B", "C"]
