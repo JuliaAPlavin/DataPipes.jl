@@ -94,14 +94,16 @@ function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing})
     if e.head == :call
         # regular function call: map(a, b)
         fname = e.args[1]
-        pipe_process_exprfunc(fname, e.args[2:end], prev)
+        args = e.args[2:end]
+        pipe_process_exprfunc(fname, args, prev)
     elseif e.head == :do
         # do-call: map(a) do ... end
         @assert length(e.args) == 2  # TODO: any issues with supporting more args?
         @assert e.args[1].head == :call
         @assert e.args[2].head == :(->)
         fname = e.args[1].args[1]
-        pipe_process_exprfunc(fname, e.args[2:end], prev)
+        args = [e.args[2:end]..., e.args[1].args[2:end]...]  # do-arg first, then all args from within the call
+        pipe_process_exprfunc(fname, args, prev)
     else
         # anything else
         # e.g., a[b], macro call, what else?

@@ -218,6 +218,23 @@ end
             "abc"
             uppercase(↑)
         end) == "ABC"
+
+        @test (@p begin
+            1:3
+            map(_, (↑) .* 10)
+        end) == [10, 20, 30]
+        @test (@p begin
+            1:3
+            map((↑) .* 10) do _
+                _
+            end
+        end) == [10, 20, 30]
+        @test (@p begin
+            1:3
+            map((↑) .* 10) do x
+                x
+            end
+        end) == [10, 20, 30]
     end
 
     @testset "composable pipe" begin
