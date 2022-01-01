@@ -225,6 +225,14 @@ CompatHelperLocal.@check()
             pairs()
             collect()
         end) == [1 => [1, 3, 5], 0 => [2, 4, 6]]
+        
+        @test (@pipe begin
+            data
+            mapmany(_.values, __)
+            SplitApplyCombine.group(_ % 2)
+            pairs()
+            collect()
+        end) == [1 => [1, 3, 5], 0 => [2, 4, 6]]
 
         @test (@pipe begin
             data

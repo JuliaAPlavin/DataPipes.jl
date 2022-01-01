@@ -66,7 +66,7 @@ pipe_process_expr(e::LineNumberNode) = nothing
 pipe_process_expr(e::Symbol) = esc(e)
 function pipe_process_expr(e::Expr)
     if e.head == :call
-        fname = e.args[1]
+        fname = func_name(e.args[1])
         data = gensym("data")
         :($(esc(data)) -> $(pipe_process_exprfunc(Val(fname), e.args[2:end], data) |> esc))
     elseif e.head == :do
@@ -80,6 +80,13 @@ function pipe_process_expr(e::Expr)
     else
         esc(e)
     end
+end
+
+func_name(e::Symbol) = e
+func_name(e::Expr) = let
+    @assert e.head == :.
+    @assert length(e.args) == 2
+    return e.args[2].value
 end
 
 function pipe_process_exprfunc(func, args, data)
