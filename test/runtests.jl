@@ -23,6 +23,20 @@ CompatHelperLocal.@check()
             map(_.name)
         end) == ["A B", "C"]
 
+        @test (@pipe begin
+            data
+            map() do x
+                x.name
+            end
+        end) == ["A B", "C"]
+
+        @test (@pipe begin
+            data
+            map() do _
+                _.name
+            end
+        end) == ["A B", "C"]
+
         @test let
             f(x) = x^2
             @pipe begin
