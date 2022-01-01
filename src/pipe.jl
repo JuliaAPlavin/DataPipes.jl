@@ -70,7 +70,7 @@ function process_pipe_step(e, state)
     e, no_add_prev = search_macro_flag(e, Symbol("@_"))
     if !keep_asis
         e = transform_pipe_step(e, no_add_prev ? nothing : state.prev)
-        e = replace_in_pipeexpr(e, Dict(:↑ => state.prev))
+        e = replace_in_pipeexpr(e, Dict(PREV_PLACEHOLDER => state.prev))
     end
     e = if isnothing(assign_lhs)
         :($(esc(next)) = $(esc(e)))
@@ -88,7 +88,7 @@ end
 # symbol as the first pipeline step: keep as-is
 transform_pipe_step(e::Symbol, prev::Nothing) = e
 # symbol as latter pipeline steps: generally represents a function call
-transform_pipe_step(e::Symbol, prev::Symbol) = e == :↑ ? prev : :($(e)($(prev)))
+transform_pipe_step(e::Symbol, prev::Symbol) = e == PREV_PLACEHOLDER ? prev : :($(e)($(prev)))
 function transform_pipe_step(e, prev::Union{Symbol, Nothing})
     fcall = dissect_function_call(e)
     if !isnothing(fcall)
@@ -124,9 +124,9 @@ end
 
 add_prev_arg_if_needed(func_fullname, args, prev::Nothing) = args
 function add_prev_arg_if_needed(func_fullname, args, prev)
-    # check if there are any "↑"s in args
+    # check if there are any prev placeholders in args already
     need_to_append = !any(args) do arg
-        occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : ee == :↑, arg)
+        occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : ee == PREV_PLACEHOLDER, arg)
     end
     if need_to_append
         name = string(unqualified_name(func_fullname))
@@ -260,10 +260,8 @@ function func_or_body_to_func(e, nargs::Int)
         return ee
     end
 
-    args = [gensym("x_$i") for i in 1:nargs]
-    syms_replacemap = Dict(arg_placeholder_for_n(i) => args[i] for i in 1:nargs)
-    
-    e_replaced = replace_in_pipeexpr(e, syms_replacemap)
+    args = [gensym("x_$i") for i in 1:nargs]    
+    e_replaced = replace_arg_placeholders(e, args)
     if e_replaced != e
         if e_replaced isa Expr && e_replaced.head == :(->)
             # already a function definition
@@ -277,25 +275,19 @@ function func_or_body_to_func(e, nargs::Int)
     end
 end
 
-is_arg_placeholder(x) = !isnothing(arg_placeholder_n(x))
-arg_placeholder_n(x) = nothing
-arg_placeholder_n(x::Symbol) = all(==('_'), string(x)) ? length(string(x)) : nothing
-arg_placeholder_for_n(n::Int) = Symbol("_" ^ n)
-
-
-# replace symbols in expr
-# nested @pipes: replace <symbol>1 as if it was <symbol> outside of nested pipe
-replace_in_pipeexpr(expr, syms_replacemap) = prewalk(expr) do ee
-    is_pipecall(ee) && return StopWalk(replace_within_inner_pipe(ee, syms_replacemap))
-    haskey(syms_replacemap, ee) && return syms_replacemap[ee]
-    return ee
+" Replace function arg placeholders (like `_`) with corresponding symbols from `args`. Processes a single level of `@p` nesting. "
+replace_arg_placeholders(expr, args::Vector{Symbol}) = prewalk(expr) do ee
+    is_pipecall(ee) && return StopWalk(replace_arg_placeholders_within_inner_pipe(ee, args))
+    is_arg_placeholder(ee) ? args[arg_placeholder_n(ee)] : ee
 end
 
-replace_within_inner_pipe(expr, syms_replacemap) = prewalk(expr) do e
-    e isa Symbol || return e
-    m = match(r"^(.+)1$", string(e))
-    if m != nothing && haskey(syms_replacemap, Symbol(m[1]))
-        return syms_replacemap[Symbol(m[1])]
-    end
-    return e
+replace_arg_placeholders_within_inner_pipe(expr, args::Vector{Symbol}) = prewalk(expr) do e
+    is_outer_arg_placeholder(e) ? args[outer_arg_placeholder_n(e)] : e
+end
+
+" Replace symbols in `expr` according to `syms_replacemap`. "
+replace_in_pipeexpr(expr, syms_replacemap::Dict) = prewalk(expr) do ee
+    is_pipecall(ee) && return StopWalk(ee)
+    haskey(syms_replacemap, ee) && return syms_replacemap[ee]
+    return ee
 end
