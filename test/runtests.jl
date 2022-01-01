@@ -160,6 +160,20 @@ end
             [123, 321]
             map(MyModule.myfunc)
         end) == [246, 642]
+
+        @test (@p "abc") == "abc"
+        @test (@p "abc" |> uppercase) == "ABC"
+        @test (@p begin
+            "abc"
+        end) == "abc"
+        @test_broken (@p begin
+            "abc"
+            uppercase()
+        end) == "ABC"
+        @test_broken (@p begin
+            "abc"
+            uppercase(↑)
+        end) == "ABC"
     end
 
     @testset "composable pipe" begin
