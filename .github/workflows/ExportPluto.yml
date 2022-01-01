@@ -6,6 +6,9 @@ on:
             - master
     workflow_dispatch:
 
+env:
+  SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+
 jobs:
     build-and-deploy:
         runs-on: ubuntu-latest
@@ -18,6 +21,13 @@ jobs:
               uses: julia-actions/setup-julia@v1
               with:
                   version: 1.7
+
+            - run: |
+                  mkdir -p ~/.ssh
+                  ssh-keyscan github.com >> ~/.ssh/known_hosts
+                  ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+                  ssh-add - <<< "${{ secrets.SSH_PRIVATE_KEY }}"
+            - run: julia -e 'using Pkg; pkg"registry add General git@github.com:aplavin/MyRegistry.git"'
 
 
             # We set up a folder that Pluto can use to cache exported notebooks. If the notebook file did not change, then Pluto can take the exported file from cache instead of running the notebook.
