@@ -257,7 +257,7 @@ function func_or_body_to_func(e, nargs::Int)
     args = [gensym("x_$i") for i in 1:nargs]    
     e_replaced = replace_arg_placeholders(e, args)
     if e_replaced != e
-        if e_replaced isa Expr && e_replaced.head == :(->)
+        if is_lambda_function(e_replaced)
             # already a function definition
             e_replaced
         else
@@ -269,6 +269,8 @@ function func_or_body_to_func(e, nargs::Int)
     end
 end
 
+is_lambda_function(e) = false
+is_lambda_function(e::Expr) = e.head == :(->)
 function max_placeholder_n(e)
     nargs = 0
     prewalk(e) do ee
