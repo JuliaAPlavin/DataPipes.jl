@@ -81,37 +81,25 @@ function process_pipe_step(e, state)
     return e, state
 end
 
-function transform_pipe_step(e::Symbol; prev::Symbol, next::Symbol)
-    e == :↑ ? prev : :($(e)($(prev)))
-end
-# function transform_pipe_step(e::Union{String, Number}, state::State)
-#     next = gensym("res")
-#     @set! prev = next
-#     e
-# end
+transform_pipe_step(e::Symbol; prev::Symbol, next::Symbol) = e == :↑ ? prev : :($(e)($(prev)))
+
 function transform_pipe_step(e::Expr; prev::Symbol, next::Symbol)
-    return if e.head == :call
+    e_processed = if e.head == :call
+        # regular function call: map(a, b)
         fname = e.args[1]
-        body = pipe_process_exprfunc(Val(func_name(fname)), fname, e.args[2:end], prev)
-        e = body
-        e = replace_in_pipeexpr(e, Dict(:↑ => prev))
+        pipe_process_exprfunc(fname, e.args[2:end], prev)
     elseif e.head == :do
-        @assert length(e.args) == 2
+        # do-call: map(a) do ... end
+        @assert length(e.args) == 2  # TODO: any issues with supporting more args?
         @assert e.args[1].head == :call
-        fname = e.args[1].args[1]
         @assert e.args[2].head == :(->)
-        body = e.args[2]
-        body = pipe_process_exprfunc(Val(func_name(fname)), fname, [body], prev)
-        e = body
-        e = replace_in_pipeexpr(e, Dict(:↑ => prev))
+        fname = e.args[1].args[1]
+        pipe_process_exprfunc(fname, e.args[2:end], prev)
     else
-        e_replaced = replace_in_pipeexpr(e, Dict(:↑ => prev))
-        if e_replaced != e
-            e_replaced
-        else
-            e
-        end
+        # anything else: a[b], @asis(...), etc
+        e
     end
+    return replace_in_pipeexpr(e_processed, Dict(:↑ => prev))
 end
 
 process_exports(x) = x, []
@@ -124,7 +112,7 @@ function process_exports(expr::Expr)
         @assert e.args[2] isa LineNumberNode  msg
         @assert e.args[3] isa Expr  msg
         @assert e.args[3].head == :(=)  msg
-        append!(exports, assigned_variables(e.args[3].args[1]))
+        append!(exports, assigned_names(e.args[3].args[1]))
         return e.args[3]
     else
         return e
@@ -137,54 +125,60 @@ split_assignment(x) = nothing, x, []
 function split_assignment(expr::Expr)
     if expr.head == :(=)
         @assert length(expr.args) == 2  "Wrong assingment format"
-        return expr.args[1], expr.args[2], assigned_variables(expr.args[1])
+        return expr.args[1], expr.args[2], assigned_names(expr.args[1])
     else
         return nothing, expr, []
     end
 end
 
 # single assingment: a = ...
-assigned_variables(lhs::Symbol) = [lhs]
+assigned_names(lhs::Symbol) = [lhs]
 # multiple assignment: a, b, c = ...
-assigned_variables(lhs::Expr) = (
+assigned_names(lhs::Expr) = (
     msg = "Wrong assingment format";
     @assert lhs.head == :tuple  msg;
     @assert all(a -> a isa Symbol, lhs.args)  msg;
     lhs.args
 )
 
-func_name(e::Symbol) = e
-func_name(e::Expr) = let
+# un-qualify name, e.g. :map -> :map, :(Base.map) -> :map
+unqualified_name(e::Symbol) = e
+unqualified_name(e::Expr) = let
     @assert e.head == :.
     @assert length(e.args) == 2
     return e.args[2].value
 end
 
-function pipe_process_exprfunc(func_short::Val, func_full, args, data)
+function pipe_process_exprfunc(func_fullname, args, prev::Symbol)
     args_processed = map(enumerate(args)) do (i, arg)
         if arg isa Expr && arg.head == :kw
+            # arg is a kwarg
             @assert length(arg.args) == 2
             key = arg.args[1]
             value = arg.args[2]
-            nargs = func_nargs(func_short, key)
-            Expr(:kw, key, func_or_body_to_func(value, nargs, data))
+            nargs = func_nargs(func_fullname, key)
+            Expr(:kw, key, func_or_body_to_func(value, nargs))
         else
-            nargs = func_nargs(func_short, Val(i))
-            func_or_body_to_func(arg, nargs, data)
+            # arg is positional
+            nargs = func_nargs(func_fullname, Val(i))
+            func_or_body_to_func(arg, nargs)
         end
     end
     if need_append_data_arg(args)
-        :( $(func_full)($(args_processed...), $data) )
+        :( $(func_fullname)($(args_processed...), $prev) )
     else
-        :( $(func_full)($(args_processed...)) )
+        :( $(func_fullname)($(args_processed...)) )
     end
 end
 
+# check if therea re no "↑"s in args
 need_append_data_arg(args) = !any(args) do arg
     occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : ee == :↑, arg)
 end
 
-func_nargs(func, argix) = 1
+# expected number of arguments in argix'th argument of func if this arg is a function itself
+func_nargs(func, argix) = func_nargs(Val(unqualified_name(func)), argix)
+func_nargs(func::Val, argix) = 1  # so that _ is replaced everywhere
 func_nargs(func::Val{:mapmany}, argix::Val{2}) = 2
 func_nargs(func::Val{:product}, argix::Val{1}) = 2
 func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{3}) = 2
@@ -193,7 +187,9 @@ func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{4}) = 2
 is_pipecall(e) = false
 is_pipecall(e::Expr) = e.head == :macrocall && e.args[1] ∈ (Symbol("@pipe"), Symbol("@p"))
 
-function func_or_body_to_func(e, nargs::Int, data::Symbol)
+# if contains "_"-like placeholder: transform to function
+# otherwise keep as-is
+function func_or_body_to_func(e, nargs::Int)
     args = [gensym("x_$i") for i in 1:nargs]
     syms_replacemap = Dict(Symbol("_"^i) => args[i] for i in 1:nargs)
     prewalk(e) do ee
@@ -216,6 +212,8 @@ function func_or_body_to_func(e, nargs::Int, data::Symbol)
     end
 end
 
+# replace symbols in expr
+# nested @pipes: replace <symbol>1 as if it was <symbol> outside of nested pipe
 replace_in_pipeexpr(expr, syms_replacemap) = prewalk(expr) do ee
     is_pipecall(ee) && return StopWalk(replace_within_inner_pipe(ee, syms_replacemap))
     haskey(syms_replacemap, ee) && return syms_replacemap[ee]
