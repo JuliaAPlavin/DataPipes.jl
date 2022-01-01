@@ -67,7 +67,8 @@ function pipe_process_expr(e::Expr)
     end
 end
 
-function pipe_process_exprfunc(func::Union{Val{:map}, Val{:filter}, Val{:filter!}}, args, data)
+function pipe_process_exprfunc(func, args, data)
+    # default case - functions like map() that take two positional arguments: function and array
     @assert length(args) == 1
     :( $(val(func))($(func_or_body_to_func(args[1], 1)), $data) )
 end
