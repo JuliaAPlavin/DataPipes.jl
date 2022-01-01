@@ -52,3 +52,7 @@ Transform collection `A` by applying `f` to each element. Elements with `isnothi
 function filtermap(f, A...)
     map(something, filter!(!isnothing, map(f, A...)))
 end
+
+function filtermap(f, A::Tuple)
+    map(something, filter(!isnothing, map(f, A)))
+end
