@@ -1,6 +1,6 @@
 module DataPipes
 
-export @pipe, @asis, mapmany
+export @pipe, @asis, mapmany, mutate
 
 include("utils.jl")
 include("pipe.jl")

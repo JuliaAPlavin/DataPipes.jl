@@ -86,7 +86,7 @@ CompatHelperLocal.@check()
         ]
     end
 
-    @testset "other funcs" begin
+    @testset "other base funcs" begin
         @test (@pipe begin
             data
             filter(length(_.values) > 3)
@@ -106,7 +106,9 @@ CompatHelperLocal.@check()
             (name="C", values=[5, 6]),
             (name="A B", values=[1, 2, 3, 4]),
         ]
+    end
 
+    @testset "my funcs" begin
         @test (@pipe begin
             data
             mapmany(_.values, __)
@@ -118,6 +120,14 @@ CompatHelperLocal.@check()
         end) == [
             (name="A B", value=1), (name="A B", value=4), (name="A B", value=9), (name="A B", value=16),
             (name="C", value=25), (name="C", value=36)
+        ]
+
+        @test (@pipe begin
+            data
+            mutate((fname=split(_.name)[1],))
+        end) == [
+            (name="A B", values=[1, 2, 3, 4], fname="A"),
+            (name="C", values=[5, 6], fname="C"),
         ]
     end
 
