@@ -206,6 +206,7 @@ function func_or_body_to_func(e, nargs::Int)
         if ee isa Symbol && all(c == '_' for c in string(ee)) && !haskey(syms_replacemap, ee)
             throw("Unknown all-underscore variable `$(ee)` in pipe. Too many underscores?")
         end
+        return ee
     end
     e_replaced = replace_in_pipeexpr(e, syms_replacemap)
     if e_replaced != e
