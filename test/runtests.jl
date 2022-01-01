@@ -86,6 +86,9 @@ end
             map("abc $(_.name)")
         end) == ["abc A B", "abc C"]
 
+        @test @pipe(map(_ + __, 1:3, 10:12)) == [11, 13, 15]
+        @test @pipe(map(_ + ___, 1:3, [nothing, nothing, nothing], 10:12)) == [11, 13, 15]
+
         @test (@pipe begin
             data
             first()
@@ -461,21 +464,6 @@ end
             data
             map((_, __2))
         end
-
-        @test_throws String try @eval(@pipe begin
-            data
-            map(__)
-        end) catch e; throw(e.error) end
-
-        @test_throws String try @eval(@pipe begin
-            data
-            map(___)
-        end) catch e; throw(e.error) end
-
-        @test_throws String try @eval(@test @pipe begin
-            data
-            mapmany(_.values, ___)
-        end) catch e; throw(e.error) end
     end
 
     @test data == data_original

@@ -199,15 +199,18 @@ is_pipecall(e::Expr) = e.head == :macrocall && e.args[1] ∈ (Symbol("@pipe"), S
 # if contains "_"-like placeholder: transform to function
 # otherwise keep as-is
 function func_or_body_to_func(e, nargs::Int)
-    args = [gensym("x_$i") for i in 1:nargs]
-    syms_replacemap = Dict(Symbol("_"^i) => args[i] for i in 1:nargs)
     prewalk(e) do ee
         is_pipecall(ee) && return StopWalk(ee)
-        if ee isa Symbol && all(c == '_' for c in string(ee)) && !haskey(syms_replacemap, ee)
-            throw("Unknown all-underscore variable `$(ee)` in pipe. Too many underscores?")
+        if ee isa Symbol && all(c == '_' for c in string(ee))
+            # all-underscore variable found
+            nargs = max(nargs, length(string(ee)))
         end
         return ee
     end
+
+    args = [gensym("x_$i") for i in 1:nargs]
+    syms_replacemap = Dict(Symbol("_"^i) => args[i] for i in 1:nargs)
+    
     e_replaced = replace_in_pipeexpr(e, syms_replacemap)
     if e_replaced != e
         if e_replaced isa Expr && e_replaced.head == :(->)

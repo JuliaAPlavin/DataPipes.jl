@@ -58,6 +58,21 @@ julia> @p sort(1:5, by=_ % 2)
  5
 ```
 
+Multivariate lambdas are fully supported: `__` (double underscore) is the placeholder for the second argument, `___` for the third, etc:
+```julia
+julia> @p map(_ + __, 1:3, 10:12)
+3-element Vector{Int64}:
+ 11
+ 13
+ 15
+
+julia> @p map(_ + ___, 1:3, 100:102, 10:12)
+3-element Vector{Int64}:
+ 11
+ 13
+ 15
+```
+
 `DataPipes` also fits within vanilla Julia pipelines:
 ```julia
 julia> [1, 2, 3, 4] |> @f(map(_^2)) |> sum
