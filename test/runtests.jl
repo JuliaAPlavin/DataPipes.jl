@@ -2,9 +2,6 @@ using SplitApplyCombine
 using DataPipes
 using Test
 
-import CompatHelperLocal
-CompatHelperLocal.@check()
-
 module MyModule
 myfunc(x) = 2x
 end
@@ -587,3 +584,6 @@ end
 
 using Documenter
 doctest(DataPipes; manual=false)
+
+import CompatHelperLocal
+CompatHelperLocal.@check()
