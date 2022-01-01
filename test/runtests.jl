@@ -706,26 +706,14 @@ end
     end
 
     @testset "aside" begin
+        tmp = []
         @test (@p begin
             1:5
             map(_^2)
-            @show 123
-            map(_ + 1)
-        end) == 124
-
-        @test (@p begin
-            1:5
-            map(_^2)
-            @aside @show 123
+            @aside push!(tmp, last(__))
             map(_ + 1)
         end) == [2, 5, 10, 17, 26]
-
-        @test (@p begin
-            1:5
-            map(_^2)
-            @aside @show first(__)
-            map(_ + 1)
-        end) == [2, 5, 10, 17, 26]
+        @test tmp == [25]
 
         x, y = nothing, nothing
         @test (@p begin
@@ -757,6 +745,31 @@ end
             map(_^2)
             map(x - _)
         end) == [122, 119, 114, 107, 98]
+
+        tmp = []
+        @test (@p begin
+            1:5
+            map() do x
+                @p begin
+                    x
+                    [__, __^2]
+                    @aside push!(tmp, __)
+                    sum()
+                end
+            end
+        end) == [2, 6, 12, 20, 30]
+        @test tmp == [[1, 1], [2, 4], [3, 9], [4, 16], [5, 25]]
+
+        tmp = []
+        @test (@p begin
+            1:5
+            map() do __
+                [__, __^2]
+                @aside push!(tmp, __)
+                sum()
+            end
+        end) == [2, 6, 12, 20, 30]
+        @test tmp == [[1, 1], [2, 4], [3, 9], [4, 16], [5, 25]]
     end
 
     @testset "errors" begin
