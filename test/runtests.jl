@@ -188,8 +188,8 @@ end
             map("abc $(_.name)")
         end) == ["abc A B", "abc C"]
 
-        @test @pipe(map(_ + __, 1:3, 10:12)) == [11, 13, 15]
-        @test @pipe(map(_ + ___, 1:3, [nothing, nothing, nothing], 10:12)) == [11, 13, 15]
+        @test @pipe(map(_ + _2, 1:3, 10:12)) == [11, 13, 15]
+        @test @pipe(map(_ + _3, 1:3, [nothing, nothing, nothing], 10:12)) == [11, 13, 15]
 
         @test (@pipe begin
             123
@@ -216,22 +216,22 @@ end
         end) == "ABC"
         @test_broken (@p begin
             "abc"
-            uppercase(↑)
+            uppercase(__)
         end) == "ABC"
 
         @test (@p begin
             1:3
-            map(_, (↑) .* 10)
+            map(_, (__) .* 10)
         end) == [10, 20, 30]
         @test (@p begin
             1:3
-            map((↑) .* 10) do _
+            map((__) .* 10) do _
                 _
             end
         end) == [10, 20, 30]
         @test (@p begin
             1:3
-            map((↑) .* 10) do x
+            map((__) .* 10) do x
                 x
             end
         end) == [10, 20, 30]
@@ -240,26 +240,26 @@ end
     @testset "composable pipe" begin
         @test @pipe(begin
             data
-            map(@pipe(_1))
+            map(@pipe(_ꜛ))
         end) == [(name = "A B", values = [1, 2, 3, 4]), (name = "C", values = [5, 6])]
         @test @pipe(begin
             data
-            map(@pipe(_1.name))
+            map(@pipe(_ꜛ.name))
         end) == ["A B", "C"]
 
         @test @pipe(begin
             data
-            map(@pipe(_1.name, collect, map(_^2), join(↑, "")))
+            map(@pipe(_ꜛ.name, collect, map(_^2), join(__, "")))
         end) == ["AA  BB", "CC"]
 
         @test @pipe(begin
             data
-            map(@pipe(_1.name, collect, map(lowercase(_)^2), join(↑, "")))
+            map(@pipe(_ꜛ.name, collect, map(lowercase(_)^2), join(__, "")))
         end) == ["aa  bb", "cc"]
 
         @test @pipe(begin
             data
-            map(@pipe(_1.name, collect, map(@pipe(_1, string, lowercase, (↑)^2)), join(↑, "")))
+            map(@pipe(_ꜛ.name, collect, map(@pipe(_ꜛ, string, lowercase, (__)^2)), join(__, "")))
         end) == ["aa  bb", "cc"]
     end
 
@@ -281,7 +281,7 @@ end
 
         @test (@pipe begin
             data
-            map((;_.name, values=@pipe(_1.values |> map(_^2))))
+            map((;_.name, values=@pipe(_ꜛ.values |> map(_^2))))
         end) == [
             (name="A B", values=[1, 4, 9, 16]),
             (name="C", values=[25, 36]),
@@ -289,7 +289,7 @@ end
 
         @test (@pipe begin
             data
-            map((;_.name, values=@p(_1.values |> map(_^2))))
+            map((;_.name, values=@p(_ꜛ.values |> map(_^2))))
         end) == [
             (name="A B", values=[1, 4, 9, 16]),
             (name="C", values=[25, 36]),
@@ -297,7 +297,7 @@ end
 
         @test (@pipe begin
             data
-            map((;_.name, values=@pipe(_1.values |> map(_^2) |> map((n=_1.name, v=_)))))
+            map((;_.name, values=@pipe(_ꜛ.values |> map(_^2) |> map((n=_ꜛ.name, v=_)))))
         end) == [
             (name="A B", values=[(n="A B", v=1), (n="A B", v=4), (n="A B", v=9), (n="A B", v=16)]),
             (name="C", values=[(n="C", v=25), (n="C", v=36)]),
@@ -305,7 +305,7 @@ end
 
         @test (@p begin
             data
-            map((;_.name, values=_.values |> @f(map(_^2) |> map((n=_1.name, v=_)))))
+            map((;_.name, values=_.values |> @f(map(_^2) |> map((n=_ꜛ.name, v=_)))))
         end) == [
             (name="A B", values=[(n="A B", v=1), (n="A B", v=4), (n="A B", v=9), (n="A B", v=16)]),
             (name="C", values=[(n="C", v=25), (n="C", v=36)]),
@@ -322,9 +322,9 @@ end
             data
             map() do _
                 @p begin
-                    _1.values
+                    _ꜛ.values
                     map() do _
-                        @p _1
+                        @p _ꜛ
                     end
                 end
             end
@@ -368,7 +368,7 @@ end
 
         @test (@pipe begin
             data
-            sort(↑; by=length(_.values))
+            sort(__; by=length(_.values))
         end) == [
             (name="C", values=[5, 6]),
             (name="A B", values=[1, 2, 3, 4]),
@@ -416,12 +416,12 @@ end
     @testset "my funcs" begin
         @test (@pipe begin
             data
-            mapmany(_.values, __)
+            mapmany(_.values, _2)
         end) == [1, 2, 3, 4, 5, 6]
 
         @test (@pipe begin
             data
-            mapmany(_.values, (; _.name, value=__^2))
+            mapmany(_.values, (; _.name, value=_2^2))
         end) == [
             (name="A B", value=1), (name="A B", value=4), (name="A B", value=9), (name="A B", value=16),
             (name="C", value=25), (name="C", value=36)
@@ -481,7 +481,7 @@ end
     @testset "SAC funcs" begin
         @test (@pipe begin
             data
-            mapmany(_.values, __)
+            mapmany(_.values, _2)
             group(_ % 2)
             pairs()
             collect()
@@ -489,7 +489,7 @@ end
         
         @test (@pipe begin
             data
-            mapmany(_.values, __)
+            mapmany(_.values, _2)
             SplitApplyCombine.group(_ % 2)
             pairs()
             collect()
@@ -497,7 +497,7 @@ end
 
         @test (@pipe begin
             data
-            mapmany(_.values, __)
+            mapmany(_.values, _2)
             group(_ % 2)
             map(_[end])
             pairs()
@@ -511,27 +511,27 @@ end
 
         @test (@pipe begin
             data
-            product(_ + length(__.values), [0, 1, 2])
+            product(_ + length(_2.values), [0, 1, 2])
         end) == [4 2; 5 3; 6 4]
 
         @test (@pipe begin
             data
-            mapmany(_.values, __)
-            innerjoin(_ % 2, 1 - _ % 2, (_, __), 1:3)
+            mapmany(_.values, _2)
+            innerjoin(_ % 2, 1 - _ % 2, (_, _2), 1:3)
             sort()
         end) == [(2, 1), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 5), (1, 6), (3, 6)] |> sort
 
         @test (@pipe begin
             data
-            mapmany(_.values, __)
-            innerjoin(_ % 2, 1 - _ % 2, (_, __), _ == __, 1:3)
+            mapmany(_.values, _2)
+            innerjoin(_ % 2, 1 - _ % 2, (_, _2), _ == _2, 1:3)
             sort()
         end) == [(2, 1), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 5), (1, 6), (3, 6)] |> sort
 
         @test (@pipe begin
             data
-            mapmany(_.values, __)
-            innerjoin(identity, identity, (_, __), _ % 2 != __ % 2, 1:3)
+            mapmany(_.values, _2)
+            innerjoin(identity, identity, (_, _2), _ % 2 != _2 % 2, 1:3)
             sort()
         end) == [(2, 1), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 5), (1, 6), (3, 6)] |> sort
     end
@@ -540,27 +540,27 @@ end
         @test (@pipe begin
             data
             first()
-            first((↑).values)
+            first((__).values)
         end) == 1
 
         @test (@pipe begin
             data
-            first(first(↑).values)
+            first(first(__).values)
         end) == 1
 
         @test (@pipe begin
             data
-            ↑
+            __
         end) == data
 
         @test (@pipe begin
             data
-            (↑)[1]
+            (__)[1]
         end) == (name = "A B", values = [1, 2, 3, 4])
 
         @test (@pipe begin
             data
-            (↑)[1].values[1]
+            (__)[1].values[1]
         end) == 1
         
         @test (@pipe begin
@@ -569,7 +569,7 @@ end
         end) == (a=1, b=2, c=3)
         @test (@pipe begin
             (1, 2, 3)
-            NamedTuple{(:a, :b, :c)}(↑)
+            NamedTuple{(:a, :b, :c)}(__)
         end) == (a=1, b=2, c=3)
 
         @test_throws MethodError (@pipe begin
@@ -591,23 +591,23 @@ end
         @test (@pipe begin
             a = 1:5
             @asis b = 6:10
-            @_ map(_ + __, a, b)
+            @_ map(_ + _2, a, b)
         end) == [7, 9, 11, 13, 15]
 
         @test (@pipe begin
             a = 1:5
             @_ b = 6:10
-            @_ map(_ + __, a, b)
+            @_ map(_ + _2, a, b)
         end) == [7, 9, 11, 13, 15]
 
         @test_throws MethodError (@pipe begin
             data
-            map((; _.name, n=length(↑)))
+            map((; _.name, n=length(__)))
         end)
 
         @test (@pipe begin
             data
-            map((; _.name, n=length(↑)), ↑)
+            map((; _.name, n=length(__)), __)
         end) == [(name = "A B", n = 2), (name = "C", n = 2)]
 
         @test (@pipe begin
@@ -641,7 +641,7 @@ end
             orig = [1, 2, 3, 4]
             map(_^2)
             filt = filter(_ >= 4)
-            sum(↑) / sum(orig)
+            sum(__) / sum(orig)
         end) == 2.9
         @test_throws UndefVarError orig
         @test_throws UndefVarError filt
@@ -653,7 +653,7 @@ end
             @export orig2 = [1, 2, 3, 4]
             map(_^2)
             filter(_ >= 4)
-            sum(↑) / sum(orig2)
+            sum(__) / sum(orig2)
         end) == 2.9
         @test orig2 == [1, 2, 3, 4]
 
@@ -661,7 +661,7 @@ end
             @export orig3 = [1, 2, 3, 4]
             map(_^2)
             @export filt2 = filter(_ >= 4)
-            sum(↑) / sum(orig3)
+            sum(__) / sum(orig3)
         end) == 2.9
         @test orig3 == [1, 2, 3, 4]
         @test filt2 == [4, 9, 16]
@@ -713,7 +713,7 @@ end
         @test (@p begin
             1:5
             map(_^2)
-            @aside @show first(↑)
+            @aside @show first(__)
             map(_ + 1)
         end) == [2, 5, 10, 17, 26]
 
@@ -721,7 +721,7 @@ end
         @test (@p begin
             1:5
             map(_^2)
-            @aside @export x = last(↑)
+            @aside @export x = last(__)
             map(_ + 1)
         end) == [2, 5, 10, 17, 26]
         @test x == 25
@@ -752,12 +752,7 @@ end
     @testset "errors" begin
         @test_throws UndefVarError @pipe begin
             data
-            map((_, _1))
-        end
-
-        @test_throws UndefVarError @pipe begin
-            data
-            map((_, __2))
+            map((_, _ꜛ))
         end
     end
 

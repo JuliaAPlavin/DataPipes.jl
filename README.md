@@ -58,15 +58,15 @@ julia> @p sort(1:5, by=_ % 2)
  5
 ```
 
-Multivariate lambdas are fully supported: `__` (double underscore) is the placeholder for the second argument, `___` for the third, etc:
+Multivariate lambdas are fully supported: `_2` (double underscore) is the placeholder for the second argument, `_3` for the third, etc:
 ```julia
-julia> @p map(_ + __, 1:3, 10:12)
+julia> @p map(_ + _2, 1:3, 10:12)
 3-element Vector{Int64}:
  11
  13
  15
 
-julia> @p map(_ + ___, 1:3, 100:102, 10:12)
+julia> @p map(_ + _3, 1:3, 100:102, 10:12)
 3-element Vector{Int64}:
  11
  13
@@ -107,7 +107,7 @@ Group and aggregate:
 ```julia
 julia> @p begin
            data
-           mapmany(_.values, __)
+           mapmany(_.values, _2)
            group(_ % 2)
            map(sum)
        end
@@ -118,7 +118,7 @@ julia> @p begin
 
 Join, also illustrating two-argument lambdas:
 ```julia
-julia> @p innerjoin(length(_.name), length(_), (a=_.name, b=__), data, ["", "A", "DEF", "B"])
+julia> @p innerjoin(length(_.name), length(_), (a=_.name, b=_2), data, ["", "A", "DEF", "B"])
 3-element Vector{NamedTuple{(:a, :b), Tuple{String, String}}}:
  (a = "C", b = "A")
  (a = "A B", b = "DEF")
@@ -128,13 +128,13 @@ julia> @p innerjoin(length(_.name), length(_), (a=_.name, b=__), data, ["", "A",
 
 ## Advanced
 
-`DataPipes` supports referring to earlier results in the pipeline. The result of the previous step is always available as `↑` (type with `\uparrow`). Intemediate results can also be named for easier reuse:
+`DataPipes` supports referring to earlier results in the pipeline. The result of the previous step is always available as `__` (double underscore). Intemediate results can also be named for easier reuse:
 ```julia
 julia> @p begin
            orig = [1, 2, 3, 4]
            map(_^2)
            filter(_ >= 4)
-           sum(↑) / sum(orig)
+           sum(__) / sum(orig)
        end
 2.9
 ```
@@ -151,7 +151,7 @@ julia> @p begin
            orig = [1, 2, 3, 4]
            map(_^2)
            @export filt = filter(_ >= 4)
-           sum(↑) / sum(orig)
+           sum(__) / sum(orig)
        end
 2.9
 
@@ -177,11 +177,11 @@ julia> @p begin
 34
 ```
 
-Pipes can be nested within one another. In this case, to refer to `_` of the outer pipe from within the inner one, use `_1`:
+Pipes can be nested within one another. In this case, to refer to `_` of the outer pipe from within the inner one, use `_ꜛ` (type the arrow with `\^uparrow`):
 ```julia
 julia> @p begin
            data
-           map(@p(_1.name |> collect |> map(string(_)^2) |> join(↑, "")))
+           map(@p(_ꜛ.name |> collect |> map(string(_)^2) |> join(__, "")))
        end
 2-element Vector{String}:
  "AA  BB"
@@ -191,9 +191,9 @@ julia> @p begin
            data
            map((;
             _.name,
-            values=@p(_1.values |>
+            values=@p(_ꜛ.values |>
                       map(_^2) |>
-                      map((n=_1.name, v=_)))
+                      map((n=_ꜛ.name, v=_)))
            ))
        end
 2-element Vector{NamedTuple{(:name, :values), Tuple{String, Vector{NamedTuple{(:n, :v), Tuple{String, Int64}}}}}}:
@@ -207,7 +207,7 @@ julia> @p begin
            a = [1, 2, 3]
            b = [4, 5, 6]
            c = [7, 8, 9]
-           map(_ + __, a, b)
+           map(_ + _2, a, b)
        end
 ERROR: MethodError: no method matching (::var"#61#62")(::Int64, ::Int64, ::Int64)
 ```
@@ -217,7 +217,7 @@ julia> @p begin
            a = [1, 2, 3]
            b = [4, 5, 6]
            c = [7, 8, 9]
-           @_ map(_ + __, a, b)
+           @_ map(_ + _2, a, b)
        end
 3-element Vector{Int64}:
  5
