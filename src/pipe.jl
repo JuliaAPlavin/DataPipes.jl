@@ -254,15 +254,14 @@ is_pipecall(e::Expr) = e.head == :macrocall && e.args[1] ∈ (Symbol("@pipe"), S
 function func_or_body_to_func(e, nargs::Int)
     prewalk(e) do ee
         is_pipecall(ee) && return StopWalk(ee)
-        if ee isa Symbol && all(c == '_' for c in string(ee))
-            # all-underscore variable found
-            nargs = max(nargs, length(string(ee)))
+        if is_arg_placeholder(ee)
+            nargs = max(nargs, arg_placeholder_n(ee))
         end
         return ee
     end
 
     args = [gensym("x_$i") for i in 1:nargs]
-    syms_replacemap = Dict(Symbol("_"^i) => args[i] for i in 1:nargs)
+    syms_replacemap = Dict(arg_placeholder_for_n(i) => args[i] for i in 1:nargs)
     
     e_replaced = replace_in_pipeexpr(e, syms_replacemap)
     if e_replaced != e
@@ -277,6 +276,13 @@ function func_or_body_to_func(e, nargs::Int)
         e
     end
 end
+
+is_arg_placeholder(x) = false
+is_arg_placeholder(x::Symbol) = all(==('_'), string(x))
+arg_placeholder_n(x) = nothing
+arg_placeholder_n(x::Symbol) = is_arg_placeholder(x) ? length(string(x)) : nothing
+arg_placeholder_for_n(n::Int) = Symbol("_" ^ n)
+
 
 # replace symbols in expr
 # nested @pipes: replace <symbol>1 as if it was <symbol> outside of nested pipe
