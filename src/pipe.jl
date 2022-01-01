@@ -62,9 +62,6 @@ else
     [block]
 end
 
-is_func_expr(e) = false
-is_func_expr(e::Expr) = e.head == :(->)
-
 
 function process_pipe_step(e, state)
     e, exports = process_exports(e)
