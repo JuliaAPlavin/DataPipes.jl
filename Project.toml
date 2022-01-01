@@ -1,7 +1,7 @@
 name = "DataPipes"
 uuid = "02685ad9-2d12-40c3-9f73-c6aeda6a7ff5"
 authors = ["Alexander Plavin <alexander@plav.in>"]
-version = "0.1.8"
+version = "0.1.9-dev"
 
 [deps]
 SplitApplyCombine = "03a91e81-4c3e-53e1-a0a4-9c0c8f19dd66"

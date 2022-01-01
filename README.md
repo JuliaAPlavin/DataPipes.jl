@@ -201,9 +201,13 @@ julia> @p begin
  (name = "C", values = [(n = "C", v = 25), (n = "C", v = 36)])
 ```
 
-Finally, it is possible to add a pipeline step that is kept as-is and not transformed by `DataPipes`. This is not supposed to be generally useful, but sometimes such an escape hatch makes sense. If that's the case, just wrap a step with `@asis`: the only replacement performed in this case is substituting the previous result for `↑`.
+Finally, it is possible to add a pipeline step that is kept as-is and not transformed by `DataPipes`. This is not supposed to be generally useful, but sometimes such an escape hatch makes sense. If that's the case, just wrap a step with `@asis`: no replacements are performed in this case.
 ```julia
-julia> @p [1, 2, 3, 4] |> @asis(map(x -> x^2, ↑)) |> filter(exp(_) > 5)
+julia> @p begin
+           a = [1, 2, 3, 4]
+           @asis(map(x -> x^2, a))
+           filter(exp(_) > 5)
+       end
 3-element Vector{Int64}:
   4
   9

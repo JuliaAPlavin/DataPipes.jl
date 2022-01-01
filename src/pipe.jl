@@ -1,13 +1,3 @@
-macro asis(expr)
-    data = gensym("data")
-    expr_replaced = replace_in_pipeexpr(expr, Dict(:↑ => data))
-    if expr_replaced != expr
-        :($(esc(data)) -> $(esc(expr_replaced)))
-    else
-        esc(expr)
-    end
-end
-
 macro pipe(block) pipe_macro(block) end
 macro pipe(exprs...) pipe_macro(exprs) end
 macro pipefunc(block) pipefunc_macro(block) end
@@ -75,7 +65,10 @@ function process_pipe_step(e, state)
     e, exports = process_exports(e)
     assign_lhs, e, assigns = split_assignment(e)
     next = gensym("res")
-    e = transform_pipe_step(e, state.prev)
+    e, keep_asis = process_asis(e)
+    if !keep_asis
+        e = transform_pipe_step(e, state.prev)
+    end
     e = if isnothing(assign_lhs)
         :($(esc(next)) = $(esc(e)))
     else
@@ -128,6 +121,26 @@ function process_exports(expr::Expr)
     end
     expr = postwalk(proc_f, expr)
     expr, exports
+end
+
+process_asis(x) = x, false
+function process_asis(expr::Expr)
+    asis = false
+    proc_f(x) = x
+    proc_f(e::Expr) = if e.head == :macrocall && e.args[1] == Symbol("@asis")
+        msg = "Wrong @asis format"
+        @assert length(e.args) == 3  msg
+        @assert e.args[2] isa LineNumberNode  msg
+        asis = true
+        return e.args[3]
+    else
+        return e
+    end
+    expr = prewalk(expr) do e
+        is_pipecall(e) && return StopWalk(e)
+        return proc_f(e)
+    end
+    expr, asis
 end
 
 split_assignment(x) = nothing, x, []

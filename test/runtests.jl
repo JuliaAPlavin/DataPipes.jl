@@ -5,10 +5,6 @@ using Test
 import CompatHelperLocal
 CompatHelperLocal.@check()
 
-using Documenter
-doctest(DataPipes; manual=false)
-
-
 module MyModule
 myfunc(x) = 2x
 end
@@ -88,32 +84,6 @@ end
 
         @test @pipe(map(_ + __, 1:3, 10:12)) == [11, 13, 15]
         @test @pipe(map(_ + ___, 1:3, [nothing, nothing, nothing], 10:12)) == [11, 13, 15]
-
-        @test (@pipe begin
-            data
-            first()
-            first((↑).values)
-        end) == 1
-
-        @test (@pipe begin
-            data
-            first(first(↑).values)
-        end) == 1
-
-        @test (@pipe begin
-            data
-            ↑
-        end) == data
-
-        @test (@pipe begin
-            data
-            (↑)[1]
-        end) == (name = "A B", values = [1, 2, 3, 4])
-
-        @test (@pipe begin
-            data
-            (↑)[1].values[1]
-        end) == 1
 
         @test (@pipe begin
             123
@@ -364,6 +334,38 @@ end
     end
 
     @testset "explicit arg" begin
+        @test (@pipe begin
+            data
+            first()
+            first((↑).values)
+        end) == 1
+
+        @test (@pipe begin
+            data
+            first(first(↑).values)
+        end) == 1
+
+        @test (@pipe begin
+            data
+            ↑
+        end) == data
+
+        @test (@pipe begin
+            data
+            (↑)[1]
+        end) == (name = "A B", values = [1, 2, 3, 4])
+
+        @test (@pipe begin
+            data
+            (↑)[1].values[1]
+        end) == 1
+
+        # @test (@pipe begin
+        #     a = 1:5
+        #     @asis b = 6:10
+        #     @_ map(_ + __, a, b)
+        # end) == 1
+
         @test_throws MethodError (@pipe begin
             data
             map((; _.name, n=length(↑)))
@@ -375,15 +377,15 @@ end
         end) == [(name = "A B", n = 2), (name = "C", n = 2)]
 
         @test (@pipe begin
-            data
-            @asis map(x -> length(x.values) > 3, ↑)
+            a = data
+            @asis map(x -> length(x.values) > 3, a)
         end) == [true, false]
 
         let
             g(x) = length(x.values)
             @test (@pipe begin
-                data
-                @asis map(g, ↑)
+                a = data
+                @asis map(g, a)
             end) == [4, 2]
         end
 
@@ -395,8 +397,8 @@ end
         end
 
         @test_throws ErrorException @eval(@pipe begin
-            data
-            @asis map(length(_.values) > 3, ↑)
+            a = data
+            @asis map(length(_.values) > 3, a)
         end)
     end
 
@@ -473,3 +475,6 @@ end
 
     @test data == data_original
 end
+
+using Documenter
+doctest(DataPipes; manual=false)
