@@ -687,6 +687,13 @@ end
             @aside x = first()
             map(_ - x)
         end) == [0, 3, 8, 15, 24]
+
+        @test (@p begin
+            @aside x = 123
+            1:5
+            map(_^2)
+            map(x - _)
+        end) == [122, 119, 114, 107, 98]
     end
 
     @testset "errors" begin
