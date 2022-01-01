@@ -92,11 +92,15 @@ function pipe_process_exprfunc(func, args, data)
     :( $(val(func))($(func_or_body_to_func(args[1], 1)), $data) )
 end
 
-function pipe_process_exprfunc(func::Val{:sort}, args, data)
-    kwargs = only(args)
-    @assert kwargs.head == :kw
-    @assert length(kwargs.args) == 2 && kwargs.args[1] == :by
-    :( $(val(func))(by=$(func_or_body_to_func(kwargs.args[2], 1)), $data) )
+function pipe_process_exprfunc(func::Union{Val{:sort}, Val{:sort!}}, args, data)
+    args_processed = map(args) do kwarg
+        @assert kwarg.head == :kw
+        @assert length(kwarg.args) == 2
+        key = kwarg.args[1]
+        value = kwarg.args[2]
+        Expr(:kw, key, func_or_body_to_func(value, 1))
+    end
+    :( $(val(func))($data; $(args_processed...)) )
 end
 
 function pipe_process_exprfunc(func::Val{:mapmany}, args, data)

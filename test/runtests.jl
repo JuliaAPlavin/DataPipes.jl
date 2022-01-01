@@ -10,6 +10,7 @@ CompatHelperLocal.@check()
         (name="A B", values=[1, 2, 3, 4]),
         (name="C", values=[5, 6]),
     ]
+    data_original = copy(data)
 
     @testset "simple" begin
         @test @pipe(data) == data
@@ -92,6 +93,12 @@ CompatHelperLocal.@check()
             filter(length(_.values) > 3)
         end) == [(name="A B", values=[1, 2, 3, 4])]
 
+        @test (@pipe begin
+            data
+            map(_)
+            filter!(length(_.values) > 3)
+        end) == [(name="A B", values=[1, 2, 3, 4])]
+
         data_copy = copy(data)
         @test (@pipe begin
             data_copy
@@ -103,6 +110,27 @@ CompatHelperLocal.@check()
             data
             sort(by=length(_.values))
         end) == [
+            (name="C", values=[5, 6]),
+            (name="A B", values=[1, 2, 3, 4]),
+        ]
+
+        @test (@pipe begin
+            data
+            sort(by=length(_.values), rev=true)
+        end) == [
+            (name="A B", values=[1, 2, 3, 4]),
+            (name="C", values=[5, 6]),
+        ]
+
+        data_copy = copy(data)
+        @test (@pipe begin
+            data_copy
+            sort!(by=length(_.values))
+        end) == [
+            (name="C", values=[5, 6]),
+            (name="A B", values=[1, 2, 3, 4]),
+        ]
+        @test data_copy == [
             (name="C", values=[5, 6]),
             (name="A B", values=[1, 2, 3, 4]),
         ]
@@ -169,4 +197,6 @@ CompatHelperLocal.@check()
             mapmany(_.values, ___)
         end) catch e; throw(e.error) end
     end
+
+    @test data == data_original
 end
