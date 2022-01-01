@@ -40,4 +40,4 @@ For comparison, the original `Chain.jl` example:
 end
 ```
 
-`DataPipes.jl` remains convenient for processing nested data as well. See the Pluto notebook for a set of worked out data manipulation steps, and for more extensive documentation.
+`DataPipes.jl` remains convenient for processing nested data as well. See [the Pluto notebook](https://aplavin.github.io/DataPipes.jl/examples/notebook.html) for a set of worked out data manipulation steps, and for more extensive documentation.
