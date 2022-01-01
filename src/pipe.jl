@@ -87,26 +87,23 @@ function pipe_process_expr(e::Expr)
 end
 
 function pipe_process_exprfunc(func, args, data)
-    # default case - functions like map() that take two positional arguments: function and array
-    @assert length(args) == 1
-    :( $(val(func))($(func_or_body_to_func(args[1], 1)), $data) )
-end
-
-function pipe_process_exprfunc(func::Union{Val{:sort}, Val{:sort!}}, args, data)
-    args_processed = map(args) do kwarg
-        @assert kwarg.head == :kw
-        @assert length(kwarg.args) == 2
-        key = kwarg.args[1]
-        value = kwarg.args[2]
-        Expr(:kw, key, func_or_body_to_func(value, 1))
+    args_processed = map(enumerate(args)) do (i, arg)
+        if arg isa Expr && arg.head == :kw
+            @assert length(arg.args) == 2
+            key = arg.args[1]
+            value = arg.args[2]
+            nargs = func_nargs(func, key)
+            Expr(:kw, key, func_or_body_to_func(value, nargs))
+        else
+            nargs = func_nargs(func, Val(i))
+            func_or_body_to_func(arg, nargs)
+        end
     end
-    :( $(val(func))($data; $(args_processed...)) )
+    :( $(val(func))($(args_processed...), $data) )
 end
 
-function pipe_process_exprfunc(func::Val{:mapmany}, args, data)
-    @assert length(args) == 2
-    :( $(val(func))($(func_or_body_to_func(args[1], 1)), $(func_or_body_to_func(args[2], 2)), $data) )
-end
+func_nargs(func, argix) = 1
+func_nargs(func::Val{:mapmany}, argix::Val{2}) = 2
 
 is_pipecall(e) = false
 is_pipecall(e::Expr) = e.head == :macrocall && e.args[1] == Symbol("@pipe")
