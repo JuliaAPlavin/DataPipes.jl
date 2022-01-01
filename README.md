@@ -5,7 +5,7 @@ Yet another piping package for Julia. Even with multiple existing implementation
 `DataPipes` inteface is designed with common data processing functions (e.g., `map` and `filter`) in mind, but is not specifically tied to them and can be used for all kinds of pipelines. This package is extensively tested, and I almost always use it myself for data manipulation.
 
 Unlike many ([1](https://github.com/jkrumbiegel/Chain.jl), [2](https://github.com/FNj/Hose.jl), [3](https://github.com/oxinabox/Pipe.jl); all?) other alternatives, `DataPipes`:
-- Gets rid of basically all the boilerplate for functions that obey the common argument order
+- Gets rid of basically all the boilerplate for functions that follow the common argument order
 - Can be plugged in as a step of a vanilla pipeline
 - Can define a function instead of immediately applying it
 - Can easily export the result of an intermediate step
