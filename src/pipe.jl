@@ -12,18 +12,18 @@ end
 function pipefunc_macro(block)
     arg = gensym("pipefuncarg")
     exprs_processed, state = process_block(block, arg)
-    :( $(esc(arg)) -> $(exprs_processed...) )
+    :( $(arg) -> $(exprs_processed...) ) |> esc
 end
 
 function pipe_macro(block)
     exprs_processed, state = process_block(block, nothing)
     quote
-        ($(esc.([state.exports..., state.prev])...),) = let ($((state.assigns)...))
+        ($([state.exports..., state.prev]...),) = let ($((state.assigns)...))
             $(exprs_processed...)
-            ($(esc.([state.exports..., state.prev])...),)
+            ($([state.exports..., state.prev]...),)
         end
-        $(esc(state.prev))
-    end
+        $(state.prev)
+    end |> esc
 end
 
 function process_block(block, initial_arg)
@@ -73,9 +73,9 @@ function process_pipe_step(e, state)
         e = replace_in_pipeexpr(e, Dict(PREV_PLACEHOLDER => state.prev))
     end
     e = if isnothing(assign_lhs)
-        :($(esc(next)) = $(esc(e)))
+        :($(next) = $(e))
     else
-        :($(esc(next)) = $(esc(assign_lhs)) = $(esc(e)))
+        :($(next) = $(assign_lhs) = $(e))
     end
     if !is_aside
         state.prev = next
