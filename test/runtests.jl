@@ -45,6 +45,9 @@ end
 
         @test (@pipe map(_.name, data)) == ["A B", "C"]
 
+        @test_broken @p(1:4 |> Base.identity) == 1:4
+        @test_broken @p("abc" |> Base.identity) == "abc"
+
         @test let
             f(x) = x^2
             @pipe begin
