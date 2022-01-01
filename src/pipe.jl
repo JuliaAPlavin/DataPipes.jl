@@ -25,7 +25,6 @@ end
 
 function pipe_macro(block)
     exprs = get_exprs(block)
-    exprs = filter(e -> !(e isa LineNumberNode), exprs)
     exprs_processed = []
     state = nothing
     for e in exprs
@@ -64,6 +63,7 @@ else
 end
 
 
+process_pipe_step(e::LineNumberNode, state) = e, state
 function process_pipe_step(e, state)
     e, exports = process_exports(e)
     assign_lhs, e, assigns = split_assignment(e)
