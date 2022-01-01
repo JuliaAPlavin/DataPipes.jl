@@ -759,8 +759,5 @@ end
     @test data == data_original
 end
 
-using Documenter
-doctest(DataPipes; manual=false)
-
 import CompatHelperLocal
 CompatHelperLocal.@check()
