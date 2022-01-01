@@ -109,15 +109,21 @@ end
             data
             map(@pipe(_1.name))
         end) == ["A B", "C"]
+
         @test @pipe(begin
             data
-            map(@pipe(_1.name, collect, map(string(_)^2), join(↑, "")))
+            map(@pipe(_1.name, collect, map(_^2), join(↑, "")))
         end) == ["AA  BB", "CC"]
+
+        @test @pipe(begin
+            data
+            map(@pipe(_1.name, collect, map(lowercase(_)^2), join(↑, "")))
+        end) == ["aa  bb", "cc"]
 
         @test_broken @pipe(begin
             data
-            map(@pipe(_1.name, collect, map(@pipe(_1, string, _^2)), join(↑, "")))
-        end) == ["AA  BB", "CC"]
+            map(@pipe(_1.name, collect, map(@pipe(_1, string, lowercase, (↑)^2)), join(↑, "")))
+        end) == ["aa  bb", "cc"]
     end
 
     @testset "pipe function" begin
@@ -360,11 +366,33 @@ end
             (↑)[1].values[1]
         end) == 1
 
+        @test_throws MethodError (@pipe begin
+            a = 1:5
+            b = 6:10
+        end)
+
+        @test (@pipe begin
+            a = 1:5
+            @asis b = 6:10
+        end) == 6:10
+
+        @test (@pipe begin
+            a = 1:5
+            @asis b = 6:10
+            @asis map((x, y) -> x + y, a, b)
+        end) == [7, 9, 11, 13, 15]
+
         # @test (@pipe begin
         #     a = 1:5
         #     @asis b = 6:10
         #     @_ map(_ + __, a, b)
-        # end) == 1
+        # end) == [7, 9, 11, 13, 15]
+
+        # @test (@pipe begin
+        #     a = 1:5
+        #     @_ b = 6:10
+        #     @_ map(_ + __, a, b)
+        # end) == [7, 9, 11, 13, 15]
 
         @test_throws MethodError (@pipe begin
             data

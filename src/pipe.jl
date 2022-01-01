@@ -98,7 +98,8 @@ function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing})
         fname = e.args[1].args[1]
         pipe_process_exprfunc(fname, e.args[2:end], prev)
     else
-        # anything else: a[b], @asis(...), etc
+        # anything else
+        # e.g., a[b], macro call, what else?
         e
     end
     return replace_in_pipeexpr(e_processed, Dict(:↑ => prev))
@@ -187,6 +188,8 @@ function pipe_process_exprfunc(func_fullname, args, prev::Union{Symbol, Nothing}
         end
     end
     if !isnothing(prev) && need_append_data_arg(args)
+        name = string(unqualified_name(func_fullname))
+        isletter(name[1]) || @warn "Pipeline step top-level function is an operator. An argument with the previous step results is still appended." func=name args
         :( $(func_fullname)($(args_processed...), $prev) )
     else
         :( $(func_fullname)($(args_processed...)) )
