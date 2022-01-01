@@ -95,7 +95,8 @@ function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing})
         # regular function call: map(a, b)
         fname = e.args[1]
         args = e.args[2:end]
-        pipe_process_exprfunc(fname, args, prev)
+        args_processed = transform_args(fname, args)
+        add_prev_arg_if_needed(fname, args_processed, prev)
     elseif e.head == :do
         # do-call: map(a) do ... end
         @assert length(e.args) == 2  # TODO: any issues with supporting more args?
@@ -103,7 +104,8 @@ function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing})
         @assert e.args[2].head == :(->)
         fname = e.args[1].args[1]
         args = [e.args[2:end]..., e.args[1].args[2:end]...]  # do-arg first, then all args from within the call
-        pipe_process_exprfunc(fname, args, prev)
+        args_processed = transform_args(fname, args)
+        add_prev_arg_if_needed(fname, args_processed, prev)
     else
         # anything else
         # e.g., a[b], macro call, what else?
@@ -183,17 +185,17 @@ unqualified_name(e::Expr) = let
     end
 end
 
-function pipe_process_exprfunc(func_fullname, args, prev::Union{Symbol, Nothing})
-    args_processed = map(enumerate(args)) do (i, arg)
-        transform_arg(arg, func_fullname, i)
-    end
-    if !isnothing(prev) && need_append_data_arg(args)
-        name = string(unqualified_name(func_fullname))
-        isletter(name[1]) || @warn "Pipeline step top-level function is an operator. An argument with the previous step results is still appended." func=name args
-        :( $(func_fullname)($(args_processed...), $prev) )
-    else
-        :( $(func_fullname)($(args_processed...)) )
-    end
+add_prev_arg_if_needed(func_fullname, args, prev::Nothing) = :( $(func_fullname)($(args...)) )
+add_prev_arg_if_needed(func_fullname, args, prev) = if need_append_data_arg(args)
+    name = string(unqualified_name(func_fullname))
+    isletter(name[1]) || @warn "Pipeline step top-level function is an operator. An argument with the previous step results is still appended." func=name args
+    :( $(func_fullname)($(args...), $prev) )
+else
+    :( $(func_fullname)($(args...)) )
+end
+
+transform_args(func_fullname, args) = map(enumerate(args)) do (i, arg)
+    transform_arg(arg, func_fullname, i)
 end
 
 function transform_arg(arg::Expr, func_fullname, i::Union{Int, Nothing})
