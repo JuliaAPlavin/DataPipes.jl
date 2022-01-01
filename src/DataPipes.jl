@@ -16,6 +16,9 @@ const var"@f" = var"@pipefunc"
 ## result of the previous pipeline step
 const PREV_PLACEHOLDER = :__
 
+## the only lambda argument name so that it's treated as implicit inner pipe
+const IMPLICIT_PIPE_ARG = PREV_PLACEHOLDER
+
 ## function arguments
 is_arg_placeholder(x) = !isnothing(arg_placeholder_n(x))
 arg_placeholder_n(x) = nothing

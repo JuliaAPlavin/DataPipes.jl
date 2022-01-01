@@ -99,8 +99,8 @@ function transform_pipe_step(e, prev::Union{Symbol, Nothing})
     fcall = dissect_function_call(e)
     if !isnothing(fcall)
         args = fcall.args
-        args = if length(args) == 1 && is_lambda_function(only(args)) && lambda_function_args(only(args)) == (:__,)
-            # pipe step function has a single argument - a lambda function, with a single argument `__`
+        args = if length(args) == 1 && is_lambda_function(only(args)) && lambda_function_args(only(args)) == (IMPLICIT_PIPE_ARG,)
+            # pipe step function has a single argument - a lambda function, with a single argument named IMPLICIT_PIPE_ARG
             block = lambda_function_body(only(args))
             arg = gensym("innerpipe_arg")
             exprs_processed, state = process_block(block, arg)
@@ -265,7 +265,11 @@ func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{3}) = 2
 func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{4}) = 2
 
 is_pipecall(e) = false
-is_pipecall(e::Expr) = e.head == :macrocall && e.args[1] ∈ (Symbol("@pipe"), Symbol("@p"), Symbol("@pipefunc"), Symbol("@f"))
+is_pipecall(e::Expr) = let
+    is_macro = e.head == :macrocall && e.args[1] ∈ (Symbol("@pipe"), Symbol("@p"), Symbol("@pipefunc"), Symbol("@f"))
+    is_implicitpipe = is_lambda_function(e) && lambda_function_args(e) == (IMPLICIT_PIPE_ARG,)
+    return is_macro || is_implicitpipe
+end
 
 # if contains "_"-like placeholder: transform to function
 # otherwise keep as-is
