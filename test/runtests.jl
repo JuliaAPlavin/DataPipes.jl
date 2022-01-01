@@ -230,6 +230,22 @@ end
             (name="A B", values=[(n="A B", v=1), (n="A B", v=4), (n="A B", v=9), (n="A B", v=16)]),
             (name="C", values=[(n="C", v=25), (n="C", v=36)]),
         ]
+
+        @test (@p begin
+            data
+            map((;_.name, values=_.values |> @f(map(_^2) |> map((n=_1.name, v=_)))))
+        end) == [
+            (name="A B", values=[(n="A B", v=1), (n="A B", v=4), (n="A B", v=9), (n="A B", v=16)]),
+            (name="C", values=[(n="C", v=25), (n="C", v=36)]),
+        ]
+
+        @test (@p begin
+            data
+            map((;_.name, values=_.values |> @f(map(_^2))))
+        end) == [
+            (name="A B", values=[1, 4, 9, 16]),
+            (name="C", values=[25, 36]),
+        ]
     end
 
     @testset "other base funcs" begin
