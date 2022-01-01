@@ -340,6 +340,24 @@ Pipes (`@p`) can be nested. Use `_ꜛ` to refer to the "anonymous" argument `_` 
 	end
 end
 
+# ╔═╡ af10d9dc-6005-4c99-909f-e68cbd1292eb
+md"""
+Lambda functions consisting only of inner pipes is a common nesting pattern, especially with the `map` function. It has a more succint implicit syntax in `DataPipes`: the lambda function body is treated as an inner `@p` pipe when the only argument is `__` (double underscore). The intuition is that `__` refers to the previous pipeline step, and assigning to `__` we effectively start a new pipe.\
+Here is a simple string-to-namedtuple parsing example using this feature:
+"""
+
+# ╔═╡ 543fd79d-596f-4147-924d-99601431f2b7
+@p begin
+	"a=1 b=2 c=3"
+
+	split
+	map() do __
+		split(__, '=')
+		Symbol(__[1]) => parse(Int, __[2])
+	end
+	NamedTuple
+end
+
 # ╔═╡ 83664d95-6d1c-4657-b4b5-5cd15134c617
 
 
@@ -475,7 +493,7 @@ SplitApplyCombine = "03a91e81-4c3e-53e1-a0a4-9c0c8f19dd66"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
-DataPipes = "~0.2.0"
+DataPipes = "~0.2.1"
 SplitApplyCombine = "~1.2.0"
 """
 
@@ -495,9 +513,9 @@ uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 
 [[deps.DataPipes]]
 deps = ["SplitApplyCombine"]
-git-tree-sha1 = "e09db11a80d9393390758ff447deff3883dc685a"
+git-tree-sha1 = "4313a8b8e2cdac8745d871def86416da78b8629c"
 uuid = "02685ad9-2d12-40c3-9f73-c6aeda6a7ff5"
-version = "0.2.0"
+version = "0.2.1"
 
 [[deps.Dictionaries]]
 deps = ["Indexing", "Random"]
@@ -619,6 +637,8 @@ uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
 # ╠═1083b8f8-8830-45c9-b15c-47d884affb42
 # ╟─57e5cb80-1211-4301-8786-b70c0a71d49a
 # ╠═3410d91b-a6ab-4f4d-9121-589d21dd2dcb
+# ╟─af10d9dc-6005-4c99-909f-e68cbd1292eb
+# ╠═543fd79d-596f-4147-924d-99601431f2b7
 # ╠═83664d95-6d1c-4657-b4b5-5cd15134c617
 # ╟─a13397e2-f91f-4424-8ee2-c1f52f9e3e83
 # ╠═c4ca6f3e-430f-4d49-abfb-cbc443c7aba2
