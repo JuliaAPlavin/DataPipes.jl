@@ -7,7 +7,39 @@ myfunc(x) = 2x
 end
 
 
-@testset begin
+@testset "data functions" begin
+    @testset "callable symbols" begin
+        x = (a=123, def="c")
+        @test (:a)(x) == 123
+        @test Val(:def)(x) == "c"
+    end
+
+    @testset "mapmany" begin
+        X = [(a=[1, 2],), (a=[3, 4],)]
+        # method from SAC.jl
+        @test mapmany(x -> x.a, X) == [1, 2, 3, 4]
+        # my method
+        @test mapmany(x -> x.a, (x, a) -> (a, sum(x.a)), X) == [(1, 3), (2, 3), (3, 7), (4, 7)]
+    end
+
+    @testset "mutate" begin
+        X = [(a=1, b=(c=2,)), (a=3, b=(c=4,))]
+        @test mutate(x -> (c=x.a^2,), X) == [(a=1, b=(c=2,), c=1), (a=3, b=(c=4,), c=9)]
+        @test mutate(x -> (a=x.a^2,), X) == [(a=1, b=(c=2,)), (a=9, b=(c=4,))]
+        @test mutate(c=x -> x.a^2, X) == [(a=1, b=(c=2,), c=1), (a=3, b=(c=4,), c=9)]
+        @test mutate(c=x -> x.a^2, d=x -> x.a + 1, X) == [(a=1, b=(c=2,), c=1, d=2), (a=3, b=(c=4,), c=9, d=4)]
+
+        @test_throws ErrorException mutate(c=x -> x.a^2, d=x -> x.c + 1, X)
+        @test mutate_seq(c=x -> x.a^2, d=x -> x.a + 1, X) == [(a=1, b=(c=2,), c=1, d=2), (a=3, b=(c=4,), c=9, d=4)]
+        @test mutate_seq(c=x -> x.a^2, d=x -> x.c + 1, X) == [(a=1, b=(c=2,), c=1, d=2), (a=3, b=(c=4,), c=9, d=10)]
+
+        @test mutate(x -> (b=(d=x.a,),), X) == [(a=1, b=(d=1,)), (a=3, b=(d=3,))]
+        @test mutate_rec(x -> (b=(d=x.a,),), X) == [(a=1, b=(c=2, d=1)), (a=3, b=(c=4, d=3))]
+        @test mutate_rec(x -> (b=(c=x.a,),), X) == [(a=1, b=(c=1,)), (a=3, b=(c=3,))]
+    end
+end
+
+@testset "pipe" begin
     data = [
         (name="A B", values=[1, 2, 3, 4]),
         (name="C", values=[5, 6]),
