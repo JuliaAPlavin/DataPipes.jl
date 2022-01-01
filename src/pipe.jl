@@ -124,16 +124,7 @@ function process_exports(expr::Expr)
         @assert e.args[2] isa LineNumberNode  msg
         @assert e.args[3] isa Expr  msg
         @assert e.args[3].head == :(=)  msg
-        if e.args[3].args[1] isa Symbol
-            # single assingment: a = ...
-            push!(exports, e.args[3].args[1])
-        else
-            # multiple assignment: a, b, c = ...
-            @assert e.args[3].args[1] isa Expr  msg
-            @assert e.args[3].args[1].head == :tuple  msg
-            @assert all(a -> a isa Symbol, e.args[3].args[1].args)  msg
-            append!(exports, e.args[3].args[1].args)
-        end
+        append!(exports, assigned_variables(e.args[3].args[1]))
         return e.args[3]
     else
         return e
@@ -146,21 +137,21 @@ split_assignment(x) = nothing, x, []
 function split_assignment(expr::Expr)
     if expr.head == :(=)
         @assert length(expr.args) == 2  "Wrong assingment format"
-        assigns = if expr.args[1] isa Symbol
-            # single assingment: a = ...
-            [expr.args[1]]
-        else
-            # multiple assignment: a, b, c = ...
-            @assert expr.args[1] isa Expr  msg
-            @assert expr.args[1].head == :tuple  msg
-            @assert all(a -> a isa Symbol, expr.args[1].args)  msg
-            expr.args[1].args
-        end
-        return expr.args[1], expr.args[2], assigns
+        return expr.args[1], expr.args[2], assigned_variables(expr.args[1])
     else
         return nothing, expr, []
     end
 end
+
+# single assingment: a = ...
+assigned_variables(lhs::Symbol) = [lhs]
+# multiple assignment: a, b, c = ...
+assigned_variables(lhs::Expr) = (
+    msg = "Wrong assingment format";
+    @assert lhs.head == :tuple  msg;
+    @assert all(a -> a isa Symbol, lhs.args)  msg;
+    lhs.args
+)
 
 func_name(e::Symbol) = e
 func_name(e::Expr) = let
