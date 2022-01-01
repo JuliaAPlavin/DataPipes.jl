@@ -253,7 +253,17 @@ CompatHelperLocal.@check()
         end) == [(2, 1), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 5), (1, 6), (3, 6)] |> sort
     end
 
-    @testset "keeping expr as-is" begin
+    @testset "explicit arg" begin
+        @test_throws MethodError (@pipe begin
+            data
+            map((; _.name, n=length(↑)))
+        end)
+
+        @test (@pipe begin
+            data
+            map((; _.name, n=length(↑)), ↑)
+        end) == [(name = "A B", n = 2), (name = "C", n = 2)]
+
         @test (@pipe begin
             data
             @asis map(x -> length(x.values) > 3, ↑)

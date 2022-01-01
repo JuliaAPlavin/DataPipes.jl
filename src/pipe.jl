@@ -2,13 +2,9 @@ macro asis(expr)
     if occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : ee == :↑, expr)
         data = gensym("data")
         body = prewalk(expr) do ee
-            if is_pipecall(ee)
-                StopWalk(ee)
-            elseif ee == :↑
-                data
-            else
-                ee
-            end
+            is_pipecall(ee) && return StopWalk(ee)
+            ee == :↑ && return data
+            return ee
         end
         :($(esc(data)) -> $(esc(body)))
     else
@@ -93,13 +89,21 @@ function pipe_process_exprfunc(func, args, data)
             key = arg.args[1]
             value = arg.args[2]
             nargs = func_nargs(func, key)
-            Expr(:kw, key, func_or_body_to_func(value, nargs))
+            Expr(:kw, key, func_or_body_to_func(value, nargs, data))
         else
             nargs = func_nargs(func, Val(i))
-            func_or_body_to_func(arg, nargs)
+            func_or_body_to_func(arg, nargs, data)
         end
     end
-    :( $(val(func))($(args_processed...), $data) )
+    if need_append_data_arg(args)
+        :( $(val(func))($(args_processed...), $data) )
+    else
+        :( $(val(func))($(args_processed...)) )
+    end
+end
+
+need_append_data_arg(args) = !any(args) do arg
+    occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : ee == :↑, arg)
 end
 
 func_nargs(func, argix) = 1
@@ -111,28 +115,23 @@ func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{4}) = 2
 is_pipecall(e) = false
 is_pipecall(e::Expr) = e.head == :macrocall && e.args[1] == Symbol("@pipe")
 
-function func_or_body_to_func(e, nargs)
-    syms_replacemap = Dict(Symbol("_"^i) => gensym("x_$i") for i in 1:nargs)
+function func_or_body_to_func(e, nargs::Int, data::Symbol)
+    args = [gensym("x_$i") for i in 1:nargs]
+    syms_replacemap = Dict(Symbol("_"^i) => args[i] for i in 1:nargs)
     prewalk(e) do ee
         is_pipecall(ee) && return StopWalk(ee)
         if ee isa Symbol && all(c == '_' for c in string(ee)) && !haskey(syms_replacemap, ee)
             throw("Unknown all-underscore variable `$(ee)` in pipe. Too many underscores?")
         end
     end
+    e = replace_in_pipeexpr(e, Dict(:↑ => data))
     if occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : haskey(syms_replacemap, ee), e)
-        body = prewalk(e) do ee
-            if is_pipecall(ee)
-                StopWalk(replace_within_inner_pipe(ee, syms_replacemap))
-            else
-                get(syms_replacemap, ee, ee)
-            end
-        end
+        body = replace_in_pipeexpr(e, syms_replacemap)
         if body isa Expr && body.head == :(->)
             # already a function definition
             body
         else
             # just function body, need to turn into definition
-            args = syms_replacemap |> values |> collect |> sort
             :(($(args...),) -> $body)
         end
     else
@@ -140,11 +139,21 @@ function func_or_body_to_func(e, nargs)
     end
 end
 
+replace_in_pipeexpr(expr, syms_replacemap) = prewalk(expr) do ee
+    is_pipecall(ee) && return StopWalk(replace_within_inner_pipe(ee, syms_replacemap))
+    haskey(syms_replacemap, ee) && return syms_replacemap[ee]
+    return ee
+end
+
 replace_within_inner_pipe(expr, syms_replacemap) = prewalk(expr) do e
     e isa Symbol || return e
-    m = match(r"^(_+)1$", string(e))
-    m != nothing && return syms_replacemap[Symbol(m[1])]
-    m = match(r"^(_+)(\d+)$", string(e))
-    m != nothing && return Symbol("$(m[1])$(parse(Int, m[2]) - 1)")
+    m = match(r"^(.+)1$", string(e))
+    if m != nothing && haskey(syms_replacemap, Symbol(m[1]))
+        return syms_replacemap[Symbol(m[1])]
+    end
+    m = match(r"^(.+)(\d+)$", string(e))
+    if m != nothing && haskey(syms_replacemap, Symbol(m[1]))
+        return Symbol("$(m[1])$(parse(Int, m[2]) - 1)")
+    end
     return e
 end
