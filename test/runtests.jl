@@ -379,6 +379,15 @@ end
             (name="C", values=[5, 6]),
         ]
 
+        rev = true
+        @test (@pipe begin
+            data
+            sort(; by=length(_.values), rev)
+        end) == [
+            (name="A B", values=[1, 2, 3, 4]),
+            (name="C", values=[5, 6]),
+        ]
+
         data_copy = copy(data)
         @test (@pipe begin
             data_copy
