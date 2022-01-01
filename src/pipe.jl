@@ -20,10 +20,16 @@ end
 function pipe_macro(block)
     exprs = get_exprs(block)
     exprs = filter(e -> !(e isa LineNumberNode), exprs)
-    exprs_processed = map(pipe_process_expr, exprs)
+    exprs_processed = []
+    prev = nothing
+    for e in exprs
+        ep, prev = pipe_process_expr(e, prev)
+        push!(exprs_processed, ep)
+    end
     quote
-        exprs = ($(exprs_processed...),)
-        foldl(|>, exprs)
+        let
+            $(exprs_processed...)
+        end
     end
 end
 
@@ -52,34 +58,44 @@ end
 is_func_expr(e) = false
 is_func_expr(e::Expr) = e.head == :(->)
 
-pipe_process_expr(e::Symbol) = e == :↑ ? :(identity) : esc(e)
-pipe_process_expr(e::Union{String, Number}) = e
-function pipe_process_expr(e::Expr)
-    if e.head == :call
+function pipe_process_expr(e, prev::Nothing)
+    next = gensym("res")
+    return :($(esc(next)) = $(esc(e))), next
+end
+function pipe_process_expr(e::Symbol, prev::Symbol)
+    next = gensym("res")
+    expr = e == :↑ ? :($(esc(next)) = $(esc(prev))) : :($(esc(next)) = $(esc(e))($(esc(prev))))
+    return expr, next
+end
+function pipe_process_expr(e::Union{String, Number}, prev::Symbol)
+    next = gensym("res")
+    :($(esc(next)) = $e), next
+end
+function pipe_process_expr(e::Expr, prev::Symbol)
+    next = gensym("res")
+    expr = if e.head == :call
         fname = e.args[1]
-        data = gensym("data")
-        body = pipe_process_exprfunc(Val(func_name(fname)), fname, e.args[2:end], data)
-        e = :($(esc(data)) -> $(esc(body)))
-        e = replace_in_pipeexpr(e, Dict(:↑ => data))
+        body = pipe_process_exprfunc(Val(func_name(fname)), fname, e.args[2:end], prev)
+        e = esc(body)
+        e = replace_in_pipeexpr(e, Dict(:↑ => prev))
     elseif e.head == :do
         @assert length(e.args) == 2
         @assert e.args[1].head == :call
         fname = e.args[1].args[1]
         @assert e.args[2].head == :(->)
         body = e.args[2]
-        data = gensym("data")
-        body = pipe_process_exprfunc(Val(func_name(fname)), fname, [body], data)
-        e = :($(esc(data)) -> $(esc(body)))
-        e = replace_in_pipeexpr(e, Dict(:↑ => data))
+        body = pipe_process_exprfunc(Val(func_name(fname)), fname, [body], prev)
+        e = esc(body)
+        e = replace_in_pipeexpr(e, Dict(:↑ => prev))
     else
-        data = gensym("data")
-        e_replaced = replace_in_pipeexpr(e, Dict(:↑ => data))
+        e_replaced = replace_in_pipeexpr(e, Dict(:↑ => prev))
         if e_replaced != e
-            :($(esc(data)) -> $(esc(e_replaced)))
+            esc(e_replaced)
         else
             esc(e)
         end
     end
+    return :($(esc(next)) = $expr), next
 end
 
 func_name(e::Symbol) = e
