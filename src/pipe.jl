@@ -17,8 +17,9 @@ macro pipe(exprs...)
     pipe_macro(exprs)
 end
 
-struct State
-    prev::Union{Symbol, Nothing}
+Base.@kwdef mutable struct State
+    prev::Symbol
+    exports::Vector{Symbol}
 end
 
 function pipe_macro(block)
@@ -27,13 +28,15 @@ function pipe_macro(block)
     exprs_processed = []
     state = nothing
     for e in exprs
-        ep, state = pipe_process_expr(e, state)
+        ep, state = pipe_process_expr_(e, state)
         push!(exprs_processed, ep)
     end
     quote
-        let
+        ($(esc.([state.exports..., state.prev])...),) = let
             $(exprs_processed...)
+            ($(esc.([state.exports..., state.prev])...),)
         end
+        $(esc(state.prev))
     end
 end
 
@@ -62,44 +65,95 @@ end
 is_func_expr(e) = false
 is_func_expr(e::Expr) = e.head == :(->)
 
-function pipe_process_expr(e, state::Nothing)
+
+function pipe_process_expr_(e, state::Nothing)
+    e, exports = process_exports(e)
+    assign_lhs, e = split_assignment(e)
     next = gensym("res")
-    return :($(esc(next)) = $(esc(e))), State(next)
+    e = if isnothing(assign_lhs)
+        :($(esc(next)) = $(esc(e)))
+    else
+        :($(esc(next)) = $(esc(assign_lhs)) = $(esc(e)))
+    end
+    return e, State(; prev=next, exports)
 end
-function pipe_process_expr(e::Symbol, state::State)
+
+function pipe_process_expr_(e, state::State)
+    e, exports = process_exports(e)
+    assign_lhs, e = split_assignment(e)
     next = gensym("res")
-    expr = e == :↑ ? :($(esc(next)) = $(esc(state.prev))) : :($(esc(next)) = $(esc(e))($(esc(state.prev))))
-    return expr, State(next)
+    e = pipe_process_expr(e; state.prev, next)
+    e = if isnothing(assign_lhs)
+        :($(esc(next)) = $e)
+    else
+        :($(esc(next)) = $(esc(assign_lhs)) = $e)
+    end
+    state.prev = next
+    append!(state.exports, exports)
+    return e, state
 end
-function pipe_process_expr(e::Union{String, Number}, state::State)
-    next = gensym("res")
-    :($(esc(next)) = $e), State(next)
+
+function pipe_process_expr(e::Symbol; prev::Symbol, next::Symbol)
+    e == :↑ ? esc(prev) : :($(esc(e))($(esc(prev))))
 end
-function pipe_process_expr(e::Expr, state::State)
-    next = gensym("res")
-    expr = if e.head == :call
+# function pipe_process_expr(e::Union{String, Number}, state::State)
+#     next = gensym("res")
+#     @set! prev = next
+#     e
+# end
+function pipe_process_expr(e::Expr; prev::Symbol, next::Symbol)
+    return if e.head == :call
         fname = e.args[1]
-        body = pipe_process_exprfunc(Val(func_name(fname)), fname, e.args[2:end], state.prev)
+        body = pipe_process_exprfunc(Val(func_name(fname)), fname, e.args[2:end], prev)
         e = esc(body)
-        e = replace_in_pipeexpr(e, Dict(:↑ => state.prev))
+        e = replace_in_pipeexpr(e, Dict(:↑ => prev))
     elseif e.head == :do
         @assert length(e.args) == 2
         @assert e.args[1].head == :call
         fname = e.args[1].args[1]
         @assert e.args[2].head == :(->)
         body = e.args[2]
-        body = pipe_process_exprfunc(Val(func_name(fname)), fname, [body], state.prev)
+        body = pipe_process_exprfunc(Val(func_name(fname)), fname, [body], prev)
         e = esc(body)
-        e = replace_in_pipeexpr(e, Dict(:↑ => state.prev))
+        e = replace_in_pipeexpr(e, Dict(:↑ => prev))
     else
-        e_replaced = replace_in_pipeexpr(e, Dict(:↑ => state.prev))
+        e_replaced = replace_in_pipeexpr(e, Dict(:↑ => prev))
         if e_replaced != e
             esc(e_replaced)
         else
             esc(e)
         end
     end
-    return :($(esc(next)) = $expr), State(next)
+end
+
+process_exports(x) = x, []
+function process_exports(expr::Expr)
+    exports = []
+    proc_f(x) = x
+    proc_f(e::Expr) = if e.head == :macrocall && e.args[1] == Symbol("@export")
+        msg = "Wrong @export format"
+        @assert length(e.args) == 3  msg
+        @assert e.args[2] isa LineNumberNode  msg
+        @assert e.args[3] isa Expr  msg
+        @assert e.args[3].head == :(=)  msg
+        @assert e.args[3].args[1] isa Symbol  msg
+        push!(exports, e.args[3].args[1])
+        return e.args[3]
+    else
+        return e
+    end
+    expr = postwalk(proc_f, expr)
+    expr, exports
+end
+
+split_assignment(x) = nothing, x
+function split_assignment(expr::Expr)
+    if expr.head == :(=)
+        @assert length(expr.args) == 2  "Wrong assingment format"
+        return expr.args[1], expr.args[2]
+    else
+        return nothing, expr
+    end
 end
 
 func_name(e::Symbol) = e

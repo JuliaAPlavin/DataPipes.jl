@@ -380,6 +380,37 @@ end
         end)
     end
 
+    @testset "assigments" begin
+        @test (@pipe begin
+            orig = [1, 2, 3, 4]
+            map(_^2)
+            filt = filter(_ >= 4)
+            sum(↑) / sum(orig)
+        end) == 2.9
+        @test_throws UndefVarError orig
+        @test_throws UndefVarError filt
+
+        # XXX: not needed in reality; tests fail without this for some reason
+        orig2 = orig3 = filt2 = nothing
+
+        @test (@pipe begin
+            @export orig2 = [1, 2, 3, 4]
+            map(_^2)
+            filter(_ >= 4)
+            sum(↑) / sum(orig2)
+        end) == 2.9
+        @test orig2 == [1, 2, 3, 4]
+
+        @test (@pipe begin
+            @export orig3 = [1, 2, 3, 4]
+            map(_^2)
+            @export filt2 = filter(_ >= 4)
+            sum(↑) / sum(orig3)
+        end) == 2.9
+        @test orig3 == [1, 2, 3, 4]
+        @test filt2 == [4, 9, 16]
+    end
+
     @testset "errors" begin
         @test_throws UndefVarError @pipe begin
             data
