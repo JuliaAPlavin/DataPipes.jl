@@ -622,6 +622,53 @@ end
         @test f() == (256, 16, 4)
     end
 
+    @testset "aside" begin
+        @test (@p begin
+            1:5
+            map(_^2)
+            @show 123
+            map(_ + 1)
+        end) == 124
+
+        @test (@p begin
+            1:5
+            map(_^2)
+            @aside @show 123
+            map(_ + 1)
+        end) == [2, 5, 10, 17, 26]
+
+        @test (@p begin
+            1:5
+            map(_^2)
+            @aside @show first(↑)
+            map(_ + 1)
+        end) == [2, 5, 10, 17, 26]
+
+        x, y = nothing, nothing
+        @test (@p begin
+            1:5
+            map(_^2)
+            @aside @export x = last(↑)
+            map(_ + 1)
+        end) == [2, 5, 10, 17, 26]
+        @test x == 25
+
+        @test (@p begin
+            1:5
+            map(_^2)
+            @aside @export y = last()
+            map(_ + 1)
+        end) == [2, 5, 10, 17, 26]
+        @test y == 25
+
+        @test (@p begin
+            1:5
+            map(_^2)
+            @aside x = first()
+            map(_ - x)
+        end) == [0, 3, 8, 15, 24]
+    end
+
     @testset "errors" begin
         @test_throws UndefVarError @pipe begin
             data

@@ -63,12 +63,13 @@ end
 process_pipe_step(e::LineNumberNode, state) = e, state
 function process_pipe_step(e, state)
     e, exports = process_exports(e)
+    e, is_aside = search_macro_flag(e, Symbol("@aside"))
     assign_lhs, e, assigns = split_assignment(e)
     next = gensym("res")
-    e, keep_asis = process_asis(e)
-    e, add_prev = process_noprev(e)
+    e, keep_asis = search_macro_flag(e, Symbol("@asis"))
+    e, no_add_prev = search_macro_flag(e, Symbol("@_"))
     if !keep_asis
-        e = transform_pipe_step(e, add_prev ? state.prev : nothing)
+        e = transform_pipe_step(e, no_add_prev ? nothing : state.prev)
         e = replace_in_pipeexpr(e, Dict(:↑ => state.prev))
     end
     e = if isnothing(assign_lhs)
@@ -76,7 +77,9 @@ function process_pipe_step(e, state)
     else
         :($(esc(next)) = $(esc(assign_lhs)) = $(esc(e)))
     end
-    state.prev = next
+    if !is_aside
+        state.prev = next
+    end
     append!(state.exports, exports)
     append!(state.assigns, assigns)
     return e, state
@@ -125,15 +128,15 @@ function process_exports(expr::Expr)
     expr, exports
 end
 
-process_asis(x) = x, false
-function process_asis(expr::Expr)
-    asis = false
+search_macro_flag(x, macroname::Symbol) = x, false
+function search_macro_flag(expr::Expr, macroname::Symbol)
+    found = false
     proc_f(x) = x
-    proc_f(e::Expr) = if e.head == :macrocall && e.args[1] == Symbol("@asis")
-        msg = "Wrong @asis format"
+    proc_f(e::Expr) = if e.head == :macrocall && e.args[1] == macroname
+        msg = "Wrong $macroname format"
         @assert length(e.args) == 3  msg
         @assert e.args[2] isa LineNumberNode  msg
-        asis = true
+        found = true
         return e.args[3]
     else
         return e
@@ -142,27 +145,7 @@ function process_asis(expr::Expr)
         is_pipecall(e) && return StopWalk(e)
         return proc_f(e)
     end
-    expr, asis
-end
-
-process_noprev(x) = x, true
-function process_noprev(expr::Expr)
-    add_prev = true
-    proc_f(x) = x
-    proc_f(e::Expr) = if e.head == :macrocall && e.args[1] == Symbol("@_")
-        msg = "Wrong @_ format"
-        @assert length(e.args) == 3  msg
-        @assert e.args[2] isa LineNumberNode  msg
-        add_prev = false
-        return e.args[3]
-    else
-        return e
-    end
-    expr = prewalk(expr) do e
-        is_pipecall(e) && return StopWalk(e)
-        return proc_f(e)
-    end
-    expr, add_prev
+    expr, found
 end
 
 split_assignment(x) = nothing, x, []
