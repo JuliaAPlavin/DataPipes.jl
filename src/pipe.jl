@@ -277,10 +277,9 @@ function func_or_body_to_func(e, nargs::Int)
     end
 end
 
-is_arg_placeholder(x) = false
-is_arg_placeholder(x::Symbol) = all(==('_'), string(x))
+is_arg_placeholder(x) = !isnothing(arg_placeholder_n(x))
 arg_placeholder_n(x) = nothing
-arg_placeholder_n(x::Symbol) = is_arg_placeholder(x) ? length(string(x)) : nothing
+arg_placeholder_n(x::Symbol) = all(==('_'), string(x)) ? length(string(x)) : nothing
 arg_placeholder_for_n(n::Int) = Symbol("_" ^ n)
 
 
@@ -297,10 +296,6 @@ replace_within_inner_pipe(expr, syms_replacemap) = prewalk(expr) do e
     m = match(r"^(.+)1$", string(e))
     if m != nothing && haskey(syms_replacemap, Symbol(m[1]))
         return syms_replacemap[Symbol(m[1])]
-    end
-    m = match(r"^(.+)(\d+)$", string(e))
-    if m != nothing && haskey(syms_replacemap, Symbol(m[1]))
-        return Symbol("$(m[1])$(parse(Int, m[2]) - 1)")
     end
     return e
 end
