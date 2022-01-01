@@ -43,6 +43,68 @@ end
             end
         end) == ["A B", "C"]
 
+        @test (@pipe begin
+            data
+            map(_ -> _.name)
+        end) == ["A B", "C"]
+
+        @test (@pipe begin
+            data
+            map(x -> x.name)
+        end) == ["A B", "C"]
+
+        @test (@pipe begin
+            data
+            map(_ -> let
+                _.name
+            end)
+        end) == ["A B", "C"]
+
+        @test (@pipe begin
+            data
+            map(x -> let
+                x.name
+            end)
+        end) == ["A B", "C"]
+
+        @test_broken (@pipe begin
+            data
+            map(function(_)
+                _.name
+            end)
+        end) == ["A B", "C"]
+
+        @test (@pipe begin
+            data
+            map(function(x)
+                x.name
+            end)
+        end) == ["A B", "C"]
+
+        @test_broken (@pipe begin
+            data
+            mutate(X=function(_)
+                _.name
+            end)
+            map(_.X)
+        end) == ["A B", "C"]
+
+        @test (@pipe begin
+            data
+            mutate(X=function(x)
+                x.name
+            end)
+            map(_.X)
+        end) == ["A B", "C"]
+
+        @test (@pipe begin
+            data
+            mutate(X=function(x)
+                x.name * "_"
+            end)
+            map(_.X)
+        end) == ["A B_", "C_"]
+
         @test (@pipe map(_.name, data)) == ["A B", "C"]
 
         @test_broken @p(1:4 |> Base.identity) == 1:4
