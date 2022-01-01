@@ -31,12 +31,12 @@ function pipe_macro(block)
     exprs_processed = filter(!isnothing, map(pipe_process_expr, exprs))
     if is_func_expr(first(exprs_processed))
         quote
-            exprs = [$(exprs_processed...)]
+            exprs = ($(exprs_processed...),)
             data -> foldl(|>, exprs, init=data)
         end
     else
         quote
-            exprs = [$(exprs_processed...)]
+            exprs = ($(exprs_processed...),)
             foldl(|>, exprs)
         end
     end

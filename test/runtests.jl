@@ -36,6 +36,12 @@ CompatHelperLocal.@check()
             map((;_.name))
         end) == [(name="A B",), (name="C",)]
 
+        f(data) = @pipe begin
+            data
+            map((;_.name))
+        end
+        @test @inferred(f(data)) == [(name="A B",), (name="C",)]
+
         @test (@pipe begin
             data
             map(x -> (;x.name, values=123))
@@ -183,6 +189,13 @@ CompatHelperLocal.@check()
             mutate_(parts=split(_.name), fname=_.parts[1])
             map(_.fname)
         end) == ["A", "C"]
+
+        f(data) = @pipe begin
+            data
+            mutate_(parts=split(_.name), fname=_.parts[1])
+            map(_.fname)
+        end
+        @test @inferred(f(data)) == ["A", "C"]
     end
 
     @testset "SAC funcs" begin
