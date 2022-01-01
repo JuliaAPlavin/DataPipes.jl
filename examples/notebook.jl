@@ -405,7 +405,7 @@ Note: some of these functions constitute type piracy.
 
 # ╔═╡ ba497bb7-354f-41ec-9d73-997a15bede76
 md"""
-1. Callable symbols:
+- Callable symbols:
 """
 
 # ╔═╡ 11033a42-d9cc-4cfa-b41d-fe85f74e43d4
@@ -422,7 +422,7 @@ nt = (a=123, b=234, c=345)
 
 # ╔═╡ 27d108b9-5537-40ce-aee5-e072f4f39b32
 md"""
-2. Extension of `SplitApplyCombine.mapmany` that accepts the second function argument. Analogue of C# `SelectMany`.
+- Extension of `SplitApplyCombine.mapmany` that accepts the second function argument. Analogue of C# `SelectMany`.
 """
 
 # ╔═╡ 4dad2df7-a26f-41b8-b0d4-873cecc55b9c
@@ -433,7 +433,7 @@ md"""
 
 # ╔═╡ 006eba40-b020-4d97-b9ef-2bbc80dcf151
 md"""
-3. `filtermap` function to perform a filtering and mapping together. Analogue of Rust `filter_map`.
+- `filtermap` function to perform a filtering and mapping together. Analogue of Rust `filter_map`.
 """
 
 # ╔═╡ 1be5c685-f21c-4416-a35d-c55ae68b2442
@@ -447,7 +447,7 @@ end
 
 # ╔═╡ 2acb6311-1018-478d-b233-9fc796f21b19
 md"""
-4. A family of `mutate` functions: name taken from `R`. They add new fields to table-like strucures.
+- A family of `mutate` functions: name taken from `R`. They add new fields to table-like strucures.
 """
 
 # ╔═╡ 5c4a12d5-ef0c-4413-9a96-0baef0d51c28
