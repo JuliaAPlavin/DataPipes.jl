@@ -41,7 +41,13 @@ get_exprs(block) = [block]
 get_exprs(block::Tuple) = block
 get_exprs(block::Expr) = if block.head == :block
     # block like `begin ... end`
-    block.args
+    exprs = block.args
+    exprs_noln = filter(e -> !(e isa LineNumberNode), exprs)
+    if length(exprs_noln) == 1
+        get_exprs(only(exprs_noln))
+    else
+        exprs
+    end
 elseif block.head == :call && block.args[1] == :(|>)
     # piped functions like `a |> f1 |> f2`
     exprs = []
@@ -92,9 +98,21 @@ transform_pipe_step(e::Symbol, prev::Symbol) = e == PREV_PLACEHOLDER ? prev : :(
 function transform_pipe_step(e, prev::Union{Symbol, Nothing})
     fcall = dissect_function_call(e)
     if !isnothing(fcall)
-        args_processed = transform_args(fcall.funcname, fcall.args)
-        args_processed = add_prev_arg_if_needed(fcall.funcname, args_processed, prev)
-        :( $(fcall.funcname)($(args_processed...)) )
+        args = fcall.args
+        args = if length(args) == 1 && is_lambda_function(only(args)) && lambda_function_args(only(args)) == (:__,)
+            # pipe step function has a single argument - a lambda function, with a single argument `__`
+            block = lambda_function_body(only(args))
+            arg = gensym("innerpipe_arg")
+            exprs_processed, state = process_block(block, arg)
+            expr = :( $(arg) -> $(exprs_processed...) )
+            expr = replace_arg_placeholders_within_inner_pipe(expr, [arg])
+            [expr]
+        else
+            args
+        end
+        args = transform_args(fcall.funcname, args)
+        args = add_prev_arg_if_needed(fcall.funcname, args, prev)
+        :( $(fcall.funcname)($(args...)) )
     else
         # pipe step not a function call: keep it as-is
         e
@@ -271,6 +289,14 @@ end
 
 is_lambda_function(e) = false
 is_lambda_function(e::Expr) = e.head == :(->)
+lambda_function_args(e::Expr) = if e.args[1] isa Symbol
+    (e.args[1],)
+else
+    @assert e.args[1].head == :tuple
+    Tuple(e.args[1].args)
+end
+lambda_function_body(e::Expr) = e.args[2]
+
 function max_placeholder_n(e)
     nargs = 0
     prewalk(e) do ee
