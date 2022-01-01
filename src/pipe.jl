@@ -186,6 +186,7 @@ need_append_data_arg(args) = !any(args) do arg
 end
 
 # expected number of arguments in argix'th argument of func if this arg is a function itself
+# this sets the minimum, additional underscores always get converted to more arguments
 func_nargs(func, argix) = func_nargs(Val(unqualified_name(func)), argix)
 func_nargs(func::Val, argix) = 1  # so that _ is replaced everywhere
 func_nargs(func::Val{:mapmany}, argix::Val{2}) = 2
