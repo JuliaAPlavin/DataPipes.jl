@@ -240,7 +240,7 @@ end
 # this sets the minimum, additional underscores always get converted to more arguments
 func_nargs(func, argix) = func_nargs(Val(unqualified_name(func)), argix)
 func_nargs(func::Val, argix::Union{Int, Symbol, Nothing}) = func_nargs(func, Val(argix))
-func_nargs(func::Val, argix::Val) = 1  # so that _ is replaced everywhere
+func_nargs(func::Val, argix::Val) = 0  # so that _ is replaced everywhere
 func_nargs(func::Val{:mapmany}, argix::Val{2}) = 2
 func_nargs(func::Val{:product}, argix::Val{1}) = 2
 func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{3}) = 2
@@ -252,13 +252,7 @@ is_pipecall(e::Expr) = e.head == :macrocall && e.args[1] ∈ (Symbol("@pipe"), S
 # if contains "_"-like placeholder: transform to function
 # otherwise keep as-is
 function func_or_body_to_func(e, nargs::Int)
-    prewalk(e) do ee
-        is_pipecall(ee) && return StopWalk(ee)
-        if is_arg_placeholder(ee)
-            nargs = max(nargs, arg_placeholder_n(ee))
-        end
-        return ee
-    end
+    nargs = max(nargs, max_placeholder_n(e))
 
     args = [gensym("x_$i") for i in 1:nargs]    
     e_replaced = replace_arg_placeholders(e, args)
@@ -275,12 +269,36 @@ function func_or_body_to_func(e, nargs::Int)
     end
 end
 
+function max_placeholder_n(e)
+    nargs = 0
+    prewalk(e) do ee
+        if is_pipecall(ee)
+            nargs = max(nargs, max_placeholder_n_inner(ee))
+            return StopWalk(ee)
+        end
+        if is_arg_placeholder(ee)
+            nargs = max(nargs, arg_placeholder_n(ee))
+        end
+        return ee
+    end
+    return nargs
+end
+function max_placeholder_n_inner(e)
+    nargs = 0
+    prewalk(e) do ee
+        if is_outer_arg_placeholder(ee)
+            nargs = max(nargs, outer_arg_placeholder_n(ee))
+        end
+        return ee
+    end
+    return nargs
+end
+
 " Replace function arg placeholders (like `_`) with corresponding symbols from `args`. Processes a single level of `@p` nesting. "
 replace_arg_placeholders(expr, args::Vector{Symbol}) = prewalk(expr) do ee
     is_pipecall(ee) && return StopWalk(replace_arg_placeholders_within_inner_pipe(ee, args))
     is_arg_placeholder(ee) ? args[arg_placeholder_n(ee)] : ee
 end
-
 replace_arg_placeholders_within_inner_pipe(expr, args::Vector{Symbol}) = prewalk(expr) do e
     is_outer_arg_placeholder(e) ? args[outer_arg_placeholder_n(e)] : e
 end
