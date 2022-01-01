@@ -28,7 +28,7 @@ function pipe_macro(block)
     exprs_processed = []
     state = nothing
     for e in exprs
-        ep, state = pipe_process_expr_(e, state)
+        ep, state = process_pipe_step(e, state)
         push!(exprs_processed, ep)
     end
     quote
@@ -66,46 +66,35 @@ is_func_expr(e) = false
 is_func_expr(e::Expr) = e.head == :(->)
 
 
-function pipe_process_expr_(e, state::Nothing)
+function process_pipe_step(e, state)
     e, exports = process_exports(e)
     assign_lhs, e = split_assignment(e)
     next = gensym("res")
+    e = isnothing(state) ? e : transform_pipe_step(e; state.prev, next)
     e = if isnothing(assign_lhs)
         :($(esc(next)) = $(esc(e)))
     else
         :($(esc(next)) = $(esc(assign_lhs)) = $(esc(e)))
     end
-    return e, State(; prev=next, exports)
-end
-
-function pipe_process_expr_(e, state::State)
-    e, exports = process_exports(e)
-    assign_lhs, e = split_assignment(e)
-    next = gensym("res")
-    e = pipe_process_expr(e; state.prev, next)
-    e = if isnothing(assign_lhs)
-        :($(esc(next)) = $e)
-    else
-        :($(esc(next)) = $(esc(assign_lhs)) = $e)
-    end
+    state = something(state, State(:_, []))
     state.prev = next
     append!(state.exports, exports)
     return e, state
 end
 
-function pipe_process_expr(e::Symbol; prev::Symbol, next::Symbol)
-    e == :↑ ? esc(prev) : :($(esc(e))($(esc(prev))))
+function transform_pipe_step(e::Symbol; prev::Symbol, next::Symbol)
+    e == :↑ ? prev : :($(e)($(prev)))
 end
-# function pipe_process_expr(e::Union{String, Number}, state::State)
+# function transform_pipe_step(e::Union{String, Number}, state::State)
 #     next = gensym("res")
 #     @set! prev = next
 #     e
 # end
-function pipe_process_expr(e::Expr; prev::Symbol, next::Symbol)
+function transform_pipe_step(e::Expr; prev::Symbol, next::Symbol)
     return if e.head == :call
         fname = e.args[1]
         body = pipe_process_exprfunc(Val(func_name(fname)), fname, e.args[2:end], prev)
-        e = esc(body)
+        e = body
         e = replace_in_pipeexpr(e, Dict(:↑ => prev))
     elseif e.head == :do
         @assert length(e.args) == 2
@@ -114,14 +103,14 @@ function pipe_process_expr(e::Expr; prev::Symbol, next::Symbol)
         @assert e.args[2].head == :(->)
         body = e.args[2]
         body = pipe_process_exprfunc(Val(func_name(fname)), fname, [body], prev)
-        e = esc(body)
+        e = body
         e = replace_in_pipeexpr(e, Dict(:↑ => prev))
     else
         e_replaced = replace_in_pipeexpr(e, Dict(:↑ => prev))
         if e_replaced != e
-            esc(e_replaced)
+            e_replaced
         else
-            esc(e)
+            e
         end
     end
 end
