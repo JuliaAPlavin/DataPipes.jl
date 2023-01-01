@@ -67,6 +67,21 @@ end
         f = nt -> unnest(nt, :a => nothing)
         @test @inferred(f((a=(x=1, y="2"), b=:z))) === (x=1, y="2", b=:z)
     end
+
+    @testset "vcat" begin
+        X = [(a=1, b=2), (a=2, b=3)]
+        Y = [(a=2, b=1)]
+
+        # @test vcat_data(X, Y, fields=:setequal)
+        # @test vcat_data(X, Y, fields=:equal)
+        # @test vcat_data(X, Y, fields=intersect)
+        # @test vcat_data(X, Y, fields=union)
+        @test vcat_data(X, Y) == [(a=1, b=2), (a=2, b=3), (a=2, b=1)]
+        @test vcat_data(X, Y; source=@optic(_.src)) == [(a=1, b=2, src=1), (a=2, b=3, src=1), (a=2, b=1, src=2)]
+        @test reduce(vcat_data, (X, Y); source=@optic(_.src)) == [(a=1, b=2, src=1), (a=2, b=3, src=1), (a=2, b=1, src=2)]
+        @test reduce(vcat_data, (; X, Y); source=@optic(_.src)) == [(a=1, b=2, src=:X), (a=2, b=3, src=:X), (a=2, b=1, src=:Y)]
+        @test reduce(vcat_data, Dict("X" => X, "Y" => Y); source=@optic(_.src)) |> sort == [(a=1, b=2, src="X"), (a=2, b=3, src="X"), (a=2, b=1, src="Y")] |> sort
+    end
 end
 
 @testset "pipe" begin

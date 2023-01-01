@@ -1,4 +1,5 @@
 import SplitApplyCombine: mapmany
+using Accessors: insert
 
 
 (name::Symbol)(x) = getfield(x, name)
@@ -86,3 +87,11 @@ end
 @inline unnest(nt::NamedTuple, k::Symbol) = _unnest(nt, Val((k,)))
 @inline unnest(nt::NamedTuple, kv::Pair{Symbol, <:Union{Symbol, Nothing}}) = _unnest(nt, Val((first(kv),)), Val(last(kv)))
 @inline unnest(nt::NamedTuple, ks::Tuple{Vararg{Symbol}}) = _unnest(nt, Val(ks))
+
+
+vcat_data(ds...; kwargs...) = reduce(vcat_data, ds; kwargs...)
+function Base.reduce(::typeof(vcat_data), ds; source=nothing)
+    isnothing(source) ?
+        reduce(vcat, ds) :
+        mapmany(((k, d),) -> d, ((k, d), x) -> insert(x, source, k), pairs(ds))
+end
