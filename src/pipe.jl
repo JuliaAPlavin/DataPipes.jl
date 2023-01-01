@@ -157,11 +157,17 @@ function process_pipe_step(e, prev)
 end
 
 
+# anything else, e.g. plain numbers or strings: keep as-is
+transform_pipe_step(e, prev) = e
 # symbol as the first pipeline step: keep as-is
 transform_pipe_step(e::Symbol, prev::Nothing) = e
 # symbol as latter pipeline steps: generally represents a function call
 transform_pipe_step(e::Symbol, prev::Symbol) = e == PREV_PLACEHOLDER ? prev : :($(e)($(prev)))
-function transform_pipe_step(e, prev::Union{Symbol, Nothing})
+function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing})
+    if !isnothing(prev) && e.head == :(.)
+        return occursin_expr(==(PREV_PLACEHOLDER), e) ? e : :($(e)($(prev)))
+    end
+
     fcall = dissect_function_call(e)
     isnothing(fcall) && return e  # pipe step not a function call: keep it as-is
     args = fcall.args
