@@ -1,5 +1,7 @@
 macro pipe(block) pipe_macro(block) end
 macro pipe(exprs...) pipe_macro(exprs) end
+macro pipeDEBUG(block) pipe_macro(block; debug=true) end
+macro pipeDEBUG(exprs...) pipe_macro(exprs; debug=true) end
 macro pipefunc(block) pipefunc_macro(block) end
 macro pipefunc(exprs...) pipefunc_macro(exprs) end
 
@@ -9,18 +11,31 @@ function pipefunc_macro(block)
     :( $(arg) -> $(map(final_expr, steps)...) ) |> esc
 end
 
-function pipe_macro(block)
+function pipe_macro(block; debug=false)
     steps = process_block(block, nothing)
     res_arg = filtermap(res_arg_if_propagated, steps) |> last
     all_exports = mapmany(exports, steps)
     all_assigns = mapmany(assigns, steps)
-    quote
-        ($([all_exports..., res_arg]...),) = let ($(all_assigns...))
-            $(map(final_expr, steps)...)
-            ($([all_exports..., res_arg]...),)
-        end
-        $(res_arg)
-    end |> esc
+    if debug
+        all_res_args = filtermap(res_arg_if_present, steps)
+        res_args_inner = gensym("res_args")
+        quote
+            global ($([all_assigns..., :_pipe, res_arg]...),) = let ($(all_assigns...))
+                $(map(final_expr, steps)...)
+                $res_args_inner = [$(all_res_args...),]
+                ($([all_assigns..., res_args_inner, res_arg]...),)
+            end
+            $(res_arg)
+        end |> esc
+    else
+        quote
+            ($([all_exports..., res_arg]...),) = let ($(all_assigns...))
+                $(map(final_expr, steps)...)
+                ($([all_exports..., res_arg]...),)
+            end
+            $(res_arg)
+        end |> esc
+    end
 end
 
 function process_block(block, initial_arg)
@@ -79,11 +94,13 @@ end
 final_expr(p::PipeStep) = p.expr_transformed
 exports(p::PipeStep) = p.exports
 assigns(p::PipeStep) = p.assigns
+res_arg_if_present(p::PipeStep) = p.res_arg
 res_arg_if_propagated(p::PipeStep) = p.is_aside ? nothing : p.res_arg
 
 final_expr(e::LineNumberNode) = e
 exports(e::LineNumberNode) = []
 assigns(e::LineNumberNode) = []
+res_arg_if_present(e::LineNumberNode) = nothing
 res_arg_if_propagated(e::LineNumberNode) = nothing
 
 process_pipe_step(e::LineNumberNode, prev) = e
