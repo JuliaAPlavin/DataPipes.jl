@@ -68,7 +68,12 @@ get_exprs(block::Expr) = if block.head == :block
         get_exprs(only(exprs_noln))
     else
         exprs
-    end
+elseif block.head == :let
+    # block `let ... end`
+    @assert length(block.args) == 2
+    @assert isempty(block.args[1].args)
+    @assert block.args[2].head == :block
+    get_exprs(block.args[2])
 elseif block.head == :call && block.args[1] == :(|>)
     # piped functions like `a |> f1 |> f2`
     exprs = []

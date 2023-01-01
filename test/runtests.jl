@@ -122,6 +122,10 @@ end
             data
             map(_.name)
         end) == ["A B", "C"]
+        @test (@pipe let
+            data
+            map(_.name)
+        end) == ["A B", "C"]
 
         @test (@pipe begin
             data
