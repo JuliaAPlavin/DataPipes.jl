@@ -114,11 +114,11 @@ process_pipe_step(e::LineNumberNode, prev) = e
 function process_pipe_step(e, prev)
     e_orig = e
     e, exports = process_exports(e)
-    e, is_aside = search_macro_flag(e, Symbol("@aside"))
+    e, is_aside = search_macro_flag(e, S"@aside")
     assign_lhs, e, assigns = split_assignment(e)
     next = gensym("res")
-    e, keep_asis = search_macro_flag(e, Symbol("@asis"))
-    e, no_add_prev = search_macro_flag(e, Symbol("@_"))
+    e, keep_asis = search_macro_flag(e, S"@asis")
+    e, no_add_prev = search_macro_flag(e, S"@_")
     if !keep_asis
         e = transform_pipe_step(e, no_add_prev ? nothing : prev)
         e = replace_in_pipeexpr(e, Dict(PREV_PLACEHOLDER => prev))
@@ -208,7 +208,7 @@ process_exports(x) = x, []
 function process_exports(expr::Expr)
     exports = []
     proc_f(x) = x
-    proc_f(e::Expr) = if e.head == :macrocall && e.args[1] == Symbol("@export")
+    proc_f(e::Expr) = if e.head == :macrocall && e.args[1] == S"@export"
         msg = "Wrong @export format"
         @assert length(e.args) == 3  msg
         @assert e.args[2] isa LineNumberNode  msg
@@ -315,7 +315,7 @@ func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{4}) = 2
 
 is_pipecall(e) = false
 is_pipecall(e::Expr) = let
-    is_macro = e.head == :macrocall && e.args[1] ∈ (Symbol("@pipe"), Symbol("@p"), Symbol("@pipefunc"), Symbol("@f"))
+    is_macro = e.head == :macrocall && e.args[1] ∈ (S"@pipe", S"@p", S"@pipefunc", S"@f")
     is_implicitpipe = is_lambda_function(e) && lambda_function_args(e) == (IMPLICIT_PIPE_ARG,)
     return is_macro || is_implicitpipe
 end

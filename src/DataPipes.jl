@@ -1,10 +1,10 @@
 module DataPipes
 
-export @pipe, @pipeDEBUG, @pipefunc, @p, @pDEBUG, @pf, @f, mapmany, mutate, mutate_flat, mutate_seq, mutate_rec, filtermap, unnest, vcat_data
+export @pipe, @pipeDEBUG, @pipefunc, @p, @pDEBUG, @pf, @f, @S_str, mapmany, mutate, mutate_flat, mutate_seq, mutate_rec, filtermap, unnest, vcat_data
 
 include("utils.jl")
-include("pipe.jl")
 include("data_functions.jl")
+include("pipe.jl")
 
 const var"@p" = var"@pipe"
 const var"@pDEBUG" = var"@pipeDEBUG"
@@ -41,7 +41,7 @@ end
 
 ## expressions where DataPipes won't replace `_` placeholders with lambda argument
 ignore_underscore_within(e) = false
-ignore_underscore_within(e::Expr) = e.head == :macrocall && e.args[1] ∈ (Symbol("@optic"),)
+ignore_underscore_within(e::Expr) = e.head == :macrocall && e.args[1] ∈ (S"@optic",)
 
 module NoAbbr
 import ..@pipe, ..@pipefunc
