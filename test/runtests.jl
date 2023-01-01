@@ -219,9 +219,10 @@ end
 
 @testset "pipe broadcast" begin
     @test @p(-4:2 |> map(_ + 1) .|> abs |> sum) == 12
-    @test_broken @p(-4:2 |> map(_ + 1) .|> abs(__) |> sum) == 12
+    @test @p(-4:2 |> map(_ + 1) .|> abs(__) |> sum) == 12
     @test @p([[1, 2], [3]] .|> map(_ + 1)) == [[2, 3], [4]]
-    @test_broken @p([[1, 2], [3]] .|> map(_ + 1, __)) == [[2, 3], [4]]
+    @test @p([[1, 2], [3]] .|> map(_ + 1, __)) == [[2, 3], [4]]
+    @test @p([[1, 2], [3]] .|> map((_, length(__)), __)) == [[(1, 2), (2, 2)], [(3, 1)]]
 end
 
 @testset "composable pipe" begin

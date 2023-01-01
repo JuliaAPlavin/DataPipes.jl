@@ -162,16 +162,13 @@ function process_pipe_step(e, prev)
 end
 
 function process_pipe_step(be::BroadcastedExpr, prev)
+    prev_elt = gensym("prev_elt")
     next = gensym("res")
     e = be.expr
     e = prewalk(ee -> get(REPLACE_IN_PIPE, ee, ee), e)
-    e = transform_pipe_step(e, prev)
-    # how exactly this should work in broadcasting?
-    # eg @p [[1, 2], [3]] .|> map((_, length(__)), __)
-    e = replace_in_pipeexpr(e, Dict(PREV_PLACEHOLDER => :(error("__ placeholder not supported in broadcasted pipe steps"))))
-    @assert e.head == :call
-    e = Expr(:., e.args[1], Expr(:tuple, e.args[2:end]...))
-    e = :($(next) = $(e))
+    e = transform_pipe_step(e, prev_elt)
+    e = replace_in_pipeexpr(e, Dict(PREV_PLACEHOLDER => prev_elt))
+    e = :($(next) = ($prev_elt -> $(e)).($prev))
     return PipeStep(;
         expr_orig=be.expr,
         expr_transformed=e,
