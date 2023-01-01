@@ -15,7 +15,7 @@ const var"@f" = var"@pipefunc"
 " Result of the previous pipeline step "
 const PREV_PLACEHOLDER = :__
 
-" Name of the only lambda argument so that it's treated as an implicit inner pipe "
+" Name of the lambda argument treated as an implicit inner pipe "
 const IMPLICIT_PIPE_ARG = PREV_PLACEHOLDER
 
 " Replacements to perform within pipes, before other transformations. "

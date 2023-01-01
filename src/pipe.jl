@@ -148,13 +148,18 @@ function transform_pipe_step(e, prev::Union{Symbol, Nothing})
     if !isnothing(fcall)
         args = fcall.args
         args = map(args) do arg
-            if is_lambda_function(arg) && lambda_function_args(arg) == (IMPLICIT_PIPE_ARG,)
-                # pipe step function argument is a lambda function, with a single argument named IMPLICIT_PIPE_ARG
+            if is_lambda_function(arg) && occursin_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg))
+                # pipe step function argument is a lambda function, with an argument or a part of an argument named IMPLICIT_PIPE_ARG
+                @assert count_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg)) == 1
                 block = lambda_function_body(arg)
                 iarg = gensym("innerpipe_arg")
                 steps = process_block(block, iarg)
-                expr = :( $(iarg) -> $(map(final_expr, steps)...) )
-                expr = replace_arg_placeholders_within_inner_pipe(expr, [iarg])
+                new_args = replace_in_pipeexpr(lambda_function_args(arg), Dict(:__ => iarg))
+                expr = :( ($(new_args...),) -> $(map(final_expr, steps)...) )
+                if lambda_function_args(arg) == (IMPLICIT_PIPE_ARG,)
+                    # not sure what replacement to do when multiple args
+                    expr = replace_arg_placeholders_within_inner_pipe(expr, [iarg])
+                end
                 expr
             else
                 arg
