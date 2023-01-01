@@ -2,6 +2,8 @@
 
 Function piping with the focus on making general data processing boilerplate-free.
 
+_Questions other than direct bug reports are best asked in the [discouse thread](https://discourse.julialang.org/t/ann-datapipes-jl/60734)._
+
 There are multiple implementation of the piping concept in Julia: [1](https://github.com/c42f/Underscores.jl), [2](https://github.com/jkrumbiegel/Chain.jl), [3](https://github.com/FNj/Hose.jl), [4](https://github.com/oxinabox/Pipe.jl), maybe even more. `DataPipes` design is focused on usual data processing and analysis tasks. What makes `DataPipes` distinct from other packages is that it ticks all these points:
 
 - [x] Gets rid of basically all boilerplate for common data processing functions:
