@@ -777,6 +777,14 @@ end
             end
         end) == [2, 6, 12, 20, 30]
         @test tmp == [[1, 1], [2, 4], [3, 9], [4, 16], [5, 25]]
+
+        @test (@p 1:5 |> @aside(x=first(__)) |> map(_ - x)) == [0, 1, 2, 3, 4]
+
+        @test (@p begin
+            1:5
+            @aside x = __ |> @f map(_^2) |> sum
+            map(_ * x)
+        end) == [55, 110, 165, 220, 275]
     end
 
     @testset "errors" begin
