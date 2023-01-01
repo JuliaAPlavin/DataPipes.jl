@@ -290,6 +290,27 @@ end
             map(_ ^ 2)
             map((_1, _2), res_a, __)
         end) ==  [(4, 100), (6, 121), (8, 144), (10, 169)]
+
+        f = function(X)
+            @p begin
+                X
+                filter(_ > 2)
+                @aside isempty(__) && return nothing
+            end
+            123
+        end
+        @test f(1:5) == 123
+        @test f(1:2) === nothing
+        f = function(X)
+            @p begin
+                X
+                @aside count(x -> x > 2, __) == 0 && return nothing
+                filter(_ > 2)
+            end
+            123
+        end
+        @test f(1:5) == 123
+        @test f(1:2) === nothing
     end
 
     @testset "composable pipe" begin
