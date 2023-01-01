@@ -14,8 +14,8 @@ end
 function pipe_macro(block; debug=false)
     steps = process_block(block, nothing)
     res_arg = filtermap(res_arg_if_propagated, steps) |> last
-    all_exports = mapmany(exports, steps)
-    all_assigns = mapmany(assigns, steps)
+    all_exports = mapreduce(exports, vcat, steps)
+    all_assigns = mapreduce(assigns, vcat, steps)
     if debug
         all_res_args = filtermap(res_arg_if_present, steps)
         exprs = map(steps) do s
@@ -150,16 +150,6 @@ function process_pipe_step(e, prev)
     )
 end
 
-struct ArgBody end
-Accessors.OpticStyle(::Type{<:ArgBody}) = Accessors.ModifyBased()
-Accessors.modify(f, arg, ::ArgBody) = f(arg)
-Accessors.modify(f, arg::Expr, ::ArgBody) =
-    if arg.head == :kw
-        @assert length(arg.args) == 2
-        Expr(:kw, arg.args[1], f(arg.args[2]))
-    else
-        f(arg)
-    end
 
 # symbol as the first pipeline step: keep as-is
 transform_pipe_step(e::Symbol, prev::Nothing) = e
@@ -167,35 +157,32 @@ transform_pipe_step(e::Symbol, prev::Nothing) = e
 transform_pipe_step(e::Symbol, prev::Symbol) = e == PREV_PLACEHOLDER ? prev : :($(e)($(prev)))
 function transform_pipe_step(e, prev::Union{Symbol, Nothing})
     fcall = dissect_function_call(e)
-    if !isnothing(fcall)
-        args = fcall.args
-        args = @modify(args |> Elements() |> ArgBody()) do arg
-            if is_lambda_function(arg) && occursin_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg))
-                # pipe step function argument is a lambda function, with an argument or a part of an argument named IMPLICIT_PIPE_ARG
-                @assert count_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg)) == 1
-                block = lambda_function_body(arg)
-                iarg = gensym("innerpipe_arg")
-                steps = process_block(block, iarg)
-                new_args = replace_in_pipeexpr(lambda_function_args(arg), Dict(:__ => iarg))
-                expr = :( ($(new_args...),) -> $(map(final_expr, steps)...) )
-                if lambda_function_args(arg) == (IMPLICIT_PIPE_ARG,)
-                    # not sure what replacement to do when multiple args
-                    expr = replace_arg_placeholders_within_inner_pipe(expr, [iarg])
-                end
-                expr
-            else
-                arg
-            end
-        end
-        args = transform_args(fcall.funcname, args)
-        args = add_prev_arg_if_needed(fcall.funcname, args, prev)
-        args = sort(args; by=a -> a isa Expr && a.head == :parameters, rev=true)
-        :( $(fcall.funcname)($(args...)) )
-    else
-        # pipe step not a function call: keep it as-is
-        e
+    isnothing(fcall) && return e  # pipe step not a function call: keep it as-is
+    args = fcall.args
+    args = map(args) do arg
+        modify_argbody(func_or_body_to_func ∘ process_implicit_pipe, arg)
     end
+    args = add_prev_arg_if_needed(fcall.funcname, args, prev)
+    args = sort(args; by=a -> a isa Expr && a.head == :parameters, rev=true)
+    :( $(fcall.funcname)($(args...)) )
 end
+
+process_implicit_pipe(arg) = 
+    if is_implicitpipe(arg)
+        @assert count_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg)) == 1
+        block = lambda_function_body(arg)
+        iarg = gensym("innerpipe_arg")
+        steps = process_block(block, iarg)
+        new_args = replace_in_pipeexpr(lambda_function_args(arg), Dict(:__ => iarg))
+        expr = :( ($(new_args...),) -> $(map(final_expr, steps)...) )
+        if lambda_function_args(arg) == (IMPLICIT_PIPE_ARG,)
+            # not sure what replacement to do when multiple args
+            expr = replace_arg_placeholders_within_inner_pipe(expr, [iarg])
+        end
+        expr
+    else
+        arg
+    end
 
 dissect_function_call(e) = nothing
 dissect_function_call(e::Symbol) = @assert false
@@ -277,52 +264,20 @@ function search_macro_flag(expr::Expr, macroname::Symbol)
     expr, found
 end
 
-transform_args(func_fullname, args) = map(enumerate(args)) do (i, arg)
-    transform_arg(arg, func_fullname, i)
-end
 
-function transform_arg(arg::Expr, func_fullname, i::Union{Int, Nothing})
-    if arg isa Expr && arg.head == :parameters
-        # arg is multiple kwargs, with preceding ';'
-        Expr(arg.head, map(arg.args) do arg
-            transform_arg(arg, func_fullname, nothing)
-        end...)
-    elseif arg.head == :kw
-        # is a kwarg
-        @assert length(arg.args) == 2
-        key, value = arg.args
-        nargs = func_nargs(func_fullname, key)
-        Expr(:kw, key, func_or_body_to_func(value, nargs))
-    else
-        nargs = func_nargs(func_fullname, i)
-        func_or_body_to_func(arg, nargs)
-    end
-end
+is_pipecall(e) = is_macropipe(e) || is_implicitpipe(e)
 
-function transform_arg(arg, func_fullname, i::Union{Int, Nothing})
-    nargs = func_nargs(func_fullname, i)
-    func_or_body_to_func(arg, nargs)
-end
+is_macropipe(e) = false
+is_macropipe(e::Expr) = e.head == :macrocall && e.args[1] ∈ (S"@pipe", S"@p", S"@pipefunc", S"@f")
 
-# expected number of arguments in argix'th argument of func if this arg is a function itself
-# this sets the minimum, additional underscores always get converted to more arguments
-func_nargs(func, argix) = func_nargs(Val(unqualified_name(func)), argix)
-func_nargs(func::Val, argix::Union{Int, Symbol, Nothing}) = func_nargs(func, Val(argix))
-func_nargs(func::Val, argix::Val) = 0
-func_nargs(func::Val{:mapmany}, argix::Val{2}) = 2
-func_nargs(func::Val{:product}, argix::Val{1}) = 2
-func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{3}) = 2
-func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{4}) = 2
+# implicit pipe: function argument that is a lambda function,
+# with an argument or a part of an argument named IMPLICIT_PIPE_ARG
+is_implicitpipe(e) = false
+is_implicitpipe(e::Expr) = is_lambda_function(e) && occursin_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(e))
 
-is_pipecall(e) = false
-is_pipecall(e::Expr) = let
-    is_macro = e.head == :macrocall && e.args[1] ∈ (S"@pipe", S"@p", S"@pipefunc", S"@f")
-    is_implicitpipe = is_lambda_function(e) && lambda_function_args(e) == (IMPLICIT_PIPE_ARG,)
-    return is_macro || is_implicitpipe
-end
 
-function func_or_body_to_func(e, nargs::Int)
-    nargs = max(nargs, max_placeholder_n(e))
+function func_or_body_to_func(e)
+    nargs = max_placeholder_n(e)
 
     args = [gensym("x_$i") for i in 1:nargs]    
     e_replaced = replace_arg_placeholders(e, args)
