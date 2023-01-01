@@ -45,6 +45,7 @@ function pipe_macro(block; debug=false)
     elseif blocktype == :begin
         quote
             $(map(final_expr, steps)...)
+            $(res_arg)
         end |> esc
     else
         error("Unexpected block type: $blocktype")
