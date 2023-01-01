@@ -236,6 +236,28 @@ end
                 x
             end
         end) == [10, 20, 30]
+
+        # start pipe anew: use @asis
+        # works with literal values...
+        @test (@p begin
+            1:5
+            map(_ * 2)
+            res_a = filter(_ > 3)
+            @asis 10:50
+            map(_ ^ 2)
+            map((_1, _2), res_a, __)
+        end) ==  [(4, 100), (6, 121), (8, 144), (10, 169)]
+        # and with variables
+        x = 1:5
+        y = 10:50
+        @test (@p begin
+            x
+            map(_ * 2)
+            res_a = filter(_ > 3)
+            @asis y
+            map(_ ^ 2)
+            map((_1, _2), res_a, __)
+        end) ==  [(4, 100), (6, 121), (8, 144), (10, 169)]
     end
 
     @testset "composable pipe" begin
@@ -777,6 +799,14 @@ end
             end
         end) == [2, 6, 12, 20, 30]
         @test tmp == [[1, 1], [2, 4], [3, 9], [4, 16], [5, 25]]
+
+        @test (@p 1:5 |> @aside(x=first(__)) |> map(_ - x)) == [0, 1, 2, 3, 4]
+
+        @test (@p begin
+            1:5
+            @aside x = __ |> @f map(_^2) |> sum
+            map(_ * x)
+        end) == [55, 110, 165, 220, 275]
     end
 
     @testset "errors" begin

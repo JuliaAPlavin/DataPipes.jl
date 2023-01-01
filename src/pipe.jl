@@ -3,38 +3,37 @@ macro pipe(exprs...) pipe_macro(exprs) end
 macro pipefunc(block) pipefunc_macro(block) end
 macro pipefunc(exprs...) pipefunc_macro(exprs) end
 
-Base.@kwdef mutable struct State
-    prev::Union{Symbol, Nothing}
-    exports::Vector{Symbol}
-    assigns::Vector{Symbol}
-end
-
 function pipefunc_macro(block)
     arg = gensym("pipefuncarg")
-    exprs_processed, state = process_block(block, arg)
-    :( $(arg) -> $(exprs_processed...) ) |> esc
+    steps = process_block(block, arg)
+    :( $(arg) -> $(map(final_expr, steps)...) ) |> esc
 end
 
 function pipe_macro(block)
-    exprs_processed, state = process_block(block, nothing)
+    steps = process_block(block, nothing)
+    res_arg = filtermap(res_arg_if_propagated, steps) |> last
+    all_exports = mapmany(exports, steps)
+    all_assigns = mapmany(assigns, steps)
     quote
-        ($([state.exports..., state.prev]...),) = let ($((state.assigns)...))
-            $(exprs_processed...)
-            ($([state.exports..., state.prev]...),)
+        ($([all_exports..., res_arg]...),) = let ($(all_assigns...))
+            $(map(final_expr, steps)...)
+            ($([all_exports..., res_arg]...),)
         end
-        $(state.prev)
+        $(res_arg)
     end |> esc
 end
 
 function process_block(block, initial_arg)
     exprs = get_exprs(block)
-    exprs_processed = []
-    state = State(initial_arg, [], [])
+    steps = []
+    prev = initial_arg
     for e in exprs
-        ep, state = process_pipe_step(e, state)
-        push!(exprs_processed, ep)
+        step = process_pipe_step(e, prev)
+        res_arg = res_arg_if_propagated(step)
+        prev = isnothing(res_arg) ? prev : res_arg
+        push!(steps, step)
     end
-    return exprs_processed, state
+    return steps
 end
 
 get_exprs(block) = [block]
@@ -65,9 +64,31 @@ else
     [block]
 end
 
+Base.@kwdef struct PipeStep
+    expr_orig
+    expr_transformed
+    res_arg::Symbol
+    assigns::Vector{Symbol}
+    exports::Vector{Symbol}
+    # flags:
+    is_aside::Bool
+    keep_asis::Bool
+    no_add_prev::Bool
+end
 
-process_pipe_step(e::LineNumberNode, state) = e, state
-function process_pipe_step(e, state)
+final_expr(p::PipeStep) = p.expr_transformed
+exports(p::PipeStep) = p.exports
+assigns(p::PipeStep) = p.assigns
+res_arg_if_propagated(p::PipeStep) = p.is_aside ? nothing : p.res_arg
+
+final_expr(e::LineNumberNode) = e
+exports(e::LineNumberNode) = []
+assigns(e::LineNumberNode) = []
+res_arg_if_propagated(e::LineNumberNode) = nothing
+
+process_pipe_step(e::LineNumberNode, prev) = e
+function process_pipe_step(e, prev)
+    e_orig = e
     e, exports = process_exports(e)
     e, is_aside = search_macro_flag(e, Symbol("@aside"))
     assign_lhs, e, assigns = split_assignment(e)
@@ -75,20 +96,22 @@ function process_pipe_step(e, state)
     e, keep_asis = search_macro_flag(e, Symbol("@asis"))
     e, no_add_prev = search_macro_flag(e, Symbol("@_"))
     if !keep_asis
-        e = transform_pipe_step(e, no_add_prev ? nothing : state.prev)
-        e = replace_in_pipeexpr(e, Dict(PREV_PLACEHOLDER => state.prev))
+        e = transform_pipe_step(e, no_add_prev ? nothing : prev)
+        e = replace_in_pipeexpr(e, Dict(PREV_PLACEHOLDER => prev))
     end
     e = if isnothing(assign_lhs)
         :($(next) = $(e))
     else
         :($(next) = $(assign_lhs) = $(e))
     end
-    if !is_aside
-        state.prev = next
-    end
-    append!(state.exports, exports)
-    append!(state.assigns, assigns)
-    return e, state
+    return PipeStep(;
+        expr_orig=e_orig,
+        expr_transformed=e,
+        res_arg=next,
+        assigns,
+        exports,
+        is_aside, keep_asis, no_add_prev,
+    )
 end
 
 # symbol as the first pipeline step: keep as-is
@@ -103,8 +126,8 @@ function transform_pipe_step(e, prev::Union{Symbol, Nothing})
             # pipe step function has a single argument - a lambda function, with a single argument named IMPLICIT_PIPE_ARG
             block = lambda_function_body(only(args))
             arg = gensym("innerpipe_arg")
-            exprs_processed, state = process_block(block, arg)
-            expr = :( $(arg) -> $(exprs_processed...) )
+            steps = process_block(block, arg)
+            expr = :( $(arg) -> $(map(final_expr, steps)...) )
             expr = replace_arg_placeholders_within_inner_pipe(expr, [arg])
             [expr]
         else
