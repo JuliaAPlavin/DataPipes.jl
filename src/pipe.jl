@@ -211,7 +211,11 @@ add_prev_arg_if_needed(func_fullname, args, prev::Nothing) = args
 function add_prev_arg_if_needed(func_fullname, args, prev)
     # check if there are any prev placeholders in args already
     need_to_append = !any([func_fullname; args]) do arg
-        occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : ee == PREV_PLACEHOLDER, arg)
+        occursin_expr(arg) do ee
+            is_pipecall(ee) ? StopWalk(ee) :
+            is_kwexpr(ee) ? ContinueWalk(ee.args[2]) :
+            ee == PREV_PLACEHOLDER
+        end
     end
     if need_to_append
         name = string(unqualified_name(func_fullname))
@@ -326,6 +330,7 @@ end
 function max_placeholder_n(e)
     nargs = 0
     prewalk(e) do ee
+        is_kwexpr(ee) && return ContinueWalk(ee.args[2])
         if is_pipecall(ee)
             nargs = max(nargs, max_placeholder_n_inner(ee))
             return StopWalk(ee)
@@ -341,6 +346,7 @@ function max_placeholder_n_inner(e)
     nargs = 0
     seen_pipe = false
     prewalk(e) do ee
+        is_kwexpr(ee) && return ContinueWalk(ee.args[2])
         if is_pipecall(ee)
             seen_pipe && return StopWalk(ee)
             seen_pipe = true
@@ -355,23 +361,26 @@ end
 
 " Replace function arg placeholders (like `_`) with corresponding symbols from `args`. Processes a single level of `@p` nesting. "
 replace_arg_placeholders(expr, args::Vector{Symbol}) = prewalk(expr) do ee
+    is_kwexpr(ee) && return Expr(:kw, StopWalk(ee.args[1]), replace_arg_placeholders(ee.args[2], args))
     ignore_underscore_within(ee) && return StopWalk(ee)
     is_pipecall(ee) && return StopWalk(replace_arg_placeholders_within_inner_pipe(ee, args))
     is_arg_placeholder(ee) ? args[arg_placeholder_n(ee)] : ee
 end
 replace_arg_placeholders_within_inner_pipe(expr, args::Vector{Symbol}) = let
     seen_pipe = false
-    prewalk(expr) do e
-        if is_pipecall(e)
-            seen_pipe && return StopWalk(e)
+    prewalk(expr) do ee
+        is_kwexpr(ee) && return Expr(:kw, StopWalk(ee.args[1]), ee.args[2])
+        if is_pipecall(ee)
+            seen_pipe && return StopWalk(ee)
             seen_pipe = true
         end
-        is_outer_arg_placeholder(e) ? args[outer_arg_placeholder_n(e)] : e
+        is_outer_arg_placeholder(ee) ? args[outer_arg_placeholder_n(ee)] : ee
     end
 end
 
 " Replace symbols in `expr` according to `syms_replacemap`. "
 replace_in_pipeexpr(expr, syms_replacemap::Dict) = prewalk(expr) do ee
+    is_kwexpr(ee) && return Expr(:kw, StopWalk(ee.args[1]), replace_in_pipeexpr(ee.args[2], syms_replacemap))
     is_pipecall(ee) && return StopWalk(ee)
     haskey(syms_replacemap, ee) && return syms_replacemap[ee]
     return ee

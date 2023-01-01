@@ -38,6 +38,10 @@ function count_expr(needle::Function, haystack)
     return cnt
 end
 
+
+is_kwexpr(e) = false
+is_kwexpr(e::Expr) = e.head == :kw
+
 is_lambda_function(e) = false
 is_lambda_function(e::Expr) = e.head == :(->)
 lambda_function_args(e::Expr) = if e.args[1] isa Symbol
