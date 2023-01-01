@@ -1,6 +1,3 @@
-val(::Val{V}) where {V} = V
-
-
 # taken from MacroTools.jl package
 walk(x, inner, outer) = outer(x)
 walk(x::Expr, inner, outer) = outer(Expr(x.head, map(inner, x.args)...))
