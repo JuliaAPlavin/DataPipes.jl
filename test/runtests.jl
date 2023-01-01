@@ -71,7 +71,7 @@ end
             end)
         end) == ["A B", "C"]
 
-        @test_broken (@pipe begin
+        @test (@pipe begin
             data
             map(function(_)
                 _.name
