@@ -14,8 +14,8 @@ end
 function pipe_macro(block; debug=false)
     steps = process_block(block, nothing)
     res_arg = filtermap(res_arg_if_propagated, steps) |> last
-    all_exports = mapmany(exports, steps)
-    all_assigns = mapmany(assigns, steps)
+    all_exports = mapreduce(exports, vcat, steps)
+    all_assigns = mapreduce(assigns, vcat, steps)
     if debug
         all_res_args = filtermap(res_arg_if_present, steps)
         exprs = map(steps) do s
@@ -150,10 +150,9 @@ function process_pipe_step(e, prev)
     )
 end
 
-struct ArgBody end
-Accessors.OpticStyle(::Type{<:ArgBody}) = Accessors.ModifyBased()
-Accessors.modify(f, arg, ::ArgBody) = f(arg)
-Accessors.modify(f, arg::Expr, ::ArgBody) =
+
+modify_argbody(f, arg) = f(arg)
+modify_argbody(f, arg::Expr) =
     if arg.head == :kw
         @assert length(arg.args) == 2
         Expr(:kw, arg.args[1], f(arg.args[2]))
@@ -169,22 +168,24 @@ function transform_pipe_step(e, prev::Union{Symbol, Nothing})
     fcall = dissect_function_call(e)
     if !isnothing(fcall)
         args = fcall.args
-        args = @modify(args |> Elements() |> ArgBody()) do arg
-            if is_lambda_function(arg) && occursin_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg))
-                # pipe step function argument is a lambda function, with an argument or a part of an argument named IMPLICIT_PIPE_ARG
-                @assert count_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg)) == 1
-                block = lambda_function_body(arg)
-                iarg = gensym("innerpipe_arg")
-                steps = process_block(block, iarg)
-                new_args = replace_in_pipeexpr(lambda_function_args(arg), Dict(:__ => iarg))
-                expr = :( ($(new_args...),) -> $(map(final_expr, steps)...) )
-                if lambda_function_args(arg) == (IMPLICIT_PIPE_ARG,)
-                    # not sure what replacement to do when multiple args
-                    expr = replace_arg_placeholders_within_inner_pipe(expr, [iarg])
+        args = map(args) do arg
+            modify_argbody(arg) do arg
+                if is_lambda_function(arg) && occursin_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg))
+                    # pipe step function argument is a lambda function, with an argument or a part of an argument named IMPLICIT_PIPE_ARG
+                    @assert count_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg)) == 1
+                    block = lambda_function_body(arg)
+                    iarg = gensym("innerpipe_arg")
+                    steps = process_block(block, iarg)
+                    new_args = replace_in_pipeexpr(lambda_function_args(arg), Dict(:__ => iarg))
+                    expr = :( ($(new_args...),) -> $(map(final_expr, steps)...) )
+                    if lambda_function_args(arg) == (IMPLICIT_PIPE_ARG,)
+                        # not sure what replacement to do when multiple args
+                        expr = replace_arg_placeholders_within_inner_pipe(expr, [iarg])
+                    end
+                    expr
+                else
+                    arg
                 end
-                expr
-            else
-                arg
             end
         end
         args = transform_args(fcall.funcname, args)

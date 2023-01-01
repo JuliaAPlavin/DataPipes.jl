@@ -1,11 +1,8 @@
 module DataPipes
 
-using Accessors
-
-export @pipe, @pipeDEBUG, @pipefunc, @p, @pDEBUG, @pf, @f, @S_str, mapmany, mapmany!, mutate, mutate_flat, mutate_seq, mutate_rec, filtermap, unnest, vcat_data
+export @pipe, @pipeDEBUG, @pipefunc, @p, @pDEBUG, @pf, @f
 
 include("utils.jl")
-include("data_functions.jl")
 include("pipe.jl")
 
 const var"@p" = var"@pipe"

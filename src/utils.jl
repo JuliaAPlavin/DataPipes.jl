@@ -82,3 +82,11 @@ unqualified_name(e::Expr) = let
         nothing
     end
 end
+
+# macro for Symbol
+macro S_str(str)
+    :(Symbol($(esc(str))))
+end
+
+
+filtermap(f, A) = map(something, filter(!isnothing, map(f, A)))

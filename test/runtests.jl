@@ -10,107 +10,6 @@ myfunc(x) = 2x
 end
 
 
-@testset "data functions" begin
-    @testset "callable symbols" begin
-        x = (a=123, def="c")
-        @test (:a)(x) == 123
-    end
-
-    @testset "mapmany" begin
-        X = [(a=[1, 2],), (a=[3, 4],)]
-        # method from SAC.jl
-        @test mapmany(x -> x.a, X) == [1, 2, 3, 4]
-        # my method
-        @test mapmany(x -> x.a, (x, a) -> (a, sum(x.a)), X) == [(1, 3), (2, 3), (3, 7), (4, 7)]
-
-        # mutating methods
-        out = Int[]
-        @test mapmany!(x -> x.a, out, X) === out == [1, 2, 3, 4]
-        out = Tuple{Int, Int}[]
-        @test mapmany!(x -> x.a, (x, a) -> (a, sum(x.a)), out, X) === out == [(1, 3), (2, 3), (3, 7), (4, 7)]
-
-
-        cnt_out = Ref(0)
-        cnt_in = Ref(0)
-        @test mapmany(i -> [cnt_out[] += 1], (i, j) -> (cnt_in[] += 1), 1:3) == [1, 2, 3]
-        @test cnt_out[] == 3
-        @test cnt_in[] == 3
-
-        Y = mapmany(x -> StructArray(;x.a), (x, a) -> (a, sum(x.a)), X)
-        @test Y == [((a=1,), 3), ((a=2,), 3), ((a=3,), 7), ((a=4,), 7)]
-        @test Y isa StructArray
-    end
-
-    @testset "mutate" begin
-        X = [(a=1, b=(c=2,)), (a=3, b=(c=4,))]
-        @test mutate(x -> (c=x.a^2,), X) == [(a=1, b=(c=2,), c=1), (a=3, b=(c=4,), c=9)]
-        @test mutate(x -> (a=x.a^2,), X) == [(a=1, b=(c=2,)), (a=9, b=(c=4,))]
-        @test mutate(c=x -> x.a^2, X) == [(a=1, b=(c=2,), c=1), (a=3, b=(c=4,), c=9)]
-        @test mutate(c=x -> x.a^2, d=x -> x.a + 1, X) == [(a=1, b=(c=2,), c=1, d=2), (a=3, b=(c=4,), c=9, d=4)]
-
-        @test_throws ErrorException mutate(c=x -> x.a^2, d=x -> x.c + 1, X)
-        @test mutate_seq(c=x -> x.a^2, d=x -> x.a + 1, X) == [(a=1, b=(c=2,), c=1, d=2), (a=3, b=(c=4,), c=9, d=4)]
-        @test mutate_seq(c=x -> x.a^2, d=x -> x.c + 1, X) == [(a=1, b=(c=2,), c=1, d=2), (a=3, b=(c=4,), c=9, d=10)]
-
-        @test mutate(x -> (b=(d=x.a,),), X) == [(a=1, b=(d=1,)), (a=3, b=(d=3,))]
-        @test mutate_rec(x -> (b=(d=x.a,),), X) == [(a=1, b=(c=2, d=1)), (a=3, b=(c=4, d=3))]
-        @test mutate_rec(x -> (b=(c=x.a,),), X) == [(a=1, b=(c=1,)), (a=3, b=(c=3,))]
-    end
-
-    @testset "filter_map" begin
-        X = 1:10
-        Y = filtermap(x -> x % 3 == 0 ? Some(x^2) : nothing, X)
-        @test Y == [9, 36, 81]
-        @test typeof(Y) == Vector{Int}
-
-        @test filtermap(x -> x % 3 == 0 ? x^2 : nothing, X) == [9, 36, 81]
-        @test filtermap(x -> x % 3 == 0 ? Some(nothing) : nothing, X) == [nothing, nothing, nothing]
-
-        @test filtermap(x -> x % 3 == 0 ? Some(x^2) : nothing, (1, 2, 3, 4, 5, 6)) === (9, 36)
-    end
-
-    @testset "(un)nest" begin
-        @test @inferred(unnest((a=(x=1, y="2"), b=:z))) === (a_x=1, a_y="2", b=:z)
-        @test_throws ErrorException unnest((a=(x=1, y="2"), a_x=3, b=:z))
-        @test @inferred(unnest((a=(x=1, y=(u="2", w=3)), b=:z))) === (a_x=1, a_y=(u="2", w=3), b=:z)
-
-        f = nt -> unnest(nt, ())
-        @test @inferred(f((a=(x=1, y="2"), b=:z))) === (a=(x=1, y="2"), b=:z)
-        f = nt -> unnest(nt, (:a,))
-        @test @inferred(f((a=(x=1, y="2"), b=:z))) === (a_x=1, a_y="2", b=:z)
-        f = nt -> unnest(nt, :a)
-        @test @inferred(f((a=(x=1, y="2"), b=:z))) === (a_x=1, a_y="2", b=:z)
-        @test_throws ErrorException unnest((a=(x=1, y="2"), b=:z), (:a, :b))
-
-        f = nt -> unnest(nt, :a => nothing)
-        @test @inferred(f((a=(x=1, y="2"), b=:z))) === (x=1, y="2", b=:z)
-
-        # @test nest( (a_x=1, a_y="2", a_z_z=3, b=:z), startswith(:a_) ) == (a=(x=1, y="2", z_z=3), b=:z)
-        # @test nest( (x_a=1, y_a="2", z_z_a=3, b=:z), endswith(:_a) ) == (a=(x=1, y="2", z_z=3), b=:z)
-        # @test nest( (x_a=1, y_a="2", z_z_a=3, b_aa=1), endswith(:_a), startswith(:b) ) == (a=(x=1, y="2", z_z=3), b=(aa=1,))
-
-        # @test f( (a_x=1, a_y="2", a_z_z=3, b=:z), x -> (a=(x=x.a_x, y=x.a_y, z_z=x.a_z_z),) )
-        # @test @replace( (name="abc", ra=1, dec=2), (coords=(_.ra, _.dec),) ) == (name="abc", coords=(1, 2))
-        # @test @replace( (name="abc", ra=1, dec=2), (coords=(@o(_.ra), @o(_.dec)),) ) == (name="abc", coords=(1, 2))
-        # @test replace( (name="abc", ra=1, dec=2), @o(_[(:ra, :dec)]) => tuple => @o(_.coords) ) == (name="abc", coords=(1, 2))
-    end
-
-    @testset "vcat" begin
-        X = [(a=1, b=2), (a=2, b=3)]
-        Y = [(a=2, b=1)]
-
-        # @test vcat_data(X, Y, fields=:setequal)
-        # @test vcat_data(X, Y, fields=:equal)
-        # @test vcat_data(X, Y, fields=intersect)
-        # @test vcat_data(X, Y, fields=union)
-        @test vcat_data(X, Y) == [(a=1, b=2), (a=2, b=3), (a=2, b=1)]
-        @test vcat_data(X, Y; source=@optic(_.src)) == [(a=1, b=2, src=1), (a=2, b=3, src=1), (a=2, b=1, src=2)]
-        @test reduce(vcat_data, (X, Y); source=@optic(_.src)) == [(a=1, b=2, src=1), (a=2, b=3, src=1), (a=2, b=1, src=2)]
-        @test reduce(vcat_data, (; X, Y); source=@optic(_.src)) == [(a=1, b=2, src=:X), (a=2, b=3, src=:X), (a=2, b=1, src=:Y)]
-        @test reduce(vcat_data, Dict("X" => X, "Y" => Y); source=@optic(_.src)) |> sort == [(a=1, b=2, src="X"), (a=2, b=3, src="X"), (a=2, b=1, src="Y")] |> sort
-    end
-end
-
 @testset "pipe" begin
     data = [
         (name="A B", values=[1, 2, 3, 4]),
@@ -185,30 +84,6 @@ end
                 x.name
             end)
         end) == ["A B", "C"]
-
-        @test_broken (@pipe begin
-            data
-            mutate(X=function(_)
-                _.name
-            end)
-            map(_.X)
-        end) == ["A B", "C"]
-
-        @test (@pipe begin
-            data
-            mutate(X=function(x)
-                x.name
-            end)
-            map(_.X)
-        end) == ["A B", "C"]
-
-        @test (@pipe begin
-            data
-            mutate(X=function(x)
-                x.name * "_"
-            end)
-            map(_.X)
-        end) == ["A B_", "C_"]
 
         @test (@pipe map(_.name, data)) == ["A B", "C"]
 
@@ -554,72 +429,10 @@ end
         @test (@p 1:5 |> Iterators.product(__, [1, 2]) |> collect) == [(1, 1) (1, 2); (2, 1) (2, 2); (3, 1) (3, 2); (4, 1) (4, 2); (5, 1) (5, 2)]
     end
 
-    @testset "my funcs" begin
-        @test (@pipe begin
-            data
-            mapmany(_.values, _2)
-        end) == [1, 2, 3, 4, 5, 6]
-
-        @test (@pipe begin
-            data
-            mapmany(_.values, (; _.name, value=_2^2))
-        end) == [
-            (name="A B", value=1), (name="A B", value=4), (name="A B", value=9), (name="A B", value=16),
-            (name="C", value=25), (name="C", value=36)
-        ]
-
-        @test (@pipe begin
-            data
-            mutate((fname=split(_.name)[1],))
-        end) == [
-            (name="A B", values=[1, 2, 3, 4], fname="A"),
-            (name="C", values=[5, 6], fname="C"),
-        ]
-
-        @test (@pipe begin
-            data
-            mutate(fname=split(_.name)[1])
-        end) == [
-            (name="A B", values=[1, 2, 3, 4], fname="A"),
-            (name="C", values=[5, 6], fname="C"),
-        ]
-
-        @test @inferred(DataPipes.merge_iterative((;), a=x -> 1, b=x -> 2)) == (a=1, b=2)
-        @test @inferred(DataPipes.merge_iterative((;), a=x -> x, b=x -> length(x))) == (a=(;), b=1)
-
-        @test (@pipe begin
-            data
-            mutate_seq(fname=split(_.name)[1])
-        end) == [
-            (name="A B", values=[1, 2, 3, 4], fname="A"),
-            (name="C", values=[5, 6], fname="C"),
-        ]
-
-        @test (@pipe begin
-            data
-            mutate_seq(parts=split(_.name), fname=_.parts[1])
-            map(_.fname)
-        end) == ["A", "C"]
-
-        f = data -> @pipe begin
-            data
-            mutate_seq(parts=split(_.name), fname=_.parts[1])
-            map(_.fname)
-        end
-        @test @inferred(f(data)) == ["A", "C"]
-
-        @test @pipe(data, map(:name)) == ["A B", "C"]
-
-        @test @pipe([(a=1, b=(c=2, d=3))] |> mutate_rec((;b=_.a))) == [(a=1, b=1)]
-        @test @pipe([(a=1, b=(c=2, d=3))] |> mutate_rec((;b=(;c=_.a)))) == [(a=1, b=(c=1, d=3))]
-        @test @pipe([(a=1, b=(c=2, d=3))] |> mutate_rec((;b=(;x=_.a)))) == [(a=1, b=(c=2, d=3, x=1))]
-        # @test_broken @pipe([(a=1, b=(c=2, d=3))] |> mutate(b.c=_.a))
-    end
-
     @testset "SAC funcs" begin
         @test (@pipe begin
             data
-            mapmany(_.values, _2)
+            mapmany(_.values)
             group(_ % 2)
             pairs()
             collect()
@@ -627,7 +440,7 @@ end
         
         @test (@pipe begin
             data
-            mapmany(_.values, _2)
+            mapmany(_.values)
             SplitApplyCombine.group(_ % 2)
             pairs()
             collect()
@@ -635,7 +448,7 @@ end
 
         @test (@pipe begin
             data
-            mapmany(_.values, _2)
+            mapmany(_.values)
             group(_ % 2)
             map(_[end])
             pairs()
@@ -654,21 +467,21 @@ end
 
         @test (@pipe begin
             data
-            mapmany(_.values, _2)
+            mapmany(_.values)
             innerjoin(_ % 2, 1 - _ % 2, (_, _2), 1:3)
             sort()
         end) == [(2, 1), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 5), (1, 6), (3, 6)] |> sort
 
         @test (@pipe begin
             data
-            mapmany(_.values, _2)
+            mapmany(_.values)
             innerjoin(_ % 2, 1 - _ % 2, (_, _2), _ == _2, 1:3)
             sort()
         end) == [(2, 1), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 5), (1, 6), (3, 6)] |> sort
 
         @test (@pipe begin
             data
-            mapmany(_.values, _2)
+            mapmany(_.values)
             innerjoin(identity, identity, (_, _2), _ % 2 != _2 % 2, 1:3)
             sort()
         end) == [(2, 1), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 5), (1, 6), (3, 6)] |> sort
