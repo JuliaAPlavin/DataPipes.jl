@@ -7,8 +7,8 @@ macro S_str(str)
     :(Symbol($str_interpolated))
 end
 
-(name::Symbol)(x) = getfield(x, name)
-(name::Val{S})(x) where {S} = getfield(x, S)
+(name::Symbol)(x) = getproperty(x, name)
+(name::Val{S})(x) where {S} = getproperty(x, S)
 
 mapmany(f_out::Function, f_in::Function, A) = [
 	f_in(a, b)
