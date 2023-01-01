@@ -678,6 +678,17 @@ end
     end) == [2, 5, 10, 17, 26]
     @test tmp == [25]
 
+    @test (@p let
+        1:5
+        map(_^2)
+        @aside sum()
+    end) == [1, 4, 9, 16, 25]
+    @test (@p begin
+        1:5
+        map(_^2)
+        @aside sum()
+    end) == [1, 4, 9, 16, 25]
+
     # tmp = []
     # @test (@p begin
     #     1:5
