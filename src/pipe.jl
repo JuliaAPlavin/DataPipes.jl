@@ -290,9 +290,14 @@ is_implicitpipe(e::Expr) = is_lambda_function(e) && occursin_expr(==(IMPLICIT_PI
 
 
 function func_or_body_to_func(e)
-    nargs = max_placeholder_n(e)
+    if is_lambda_function(e) && !any(is_arg_placeholder, lambda_function_args(e))
+        # already a function with explicitly specified arguments - no placeholders
+        # don't replace anything within, even if there are underscores
+        return e
+    end
 
-    args = [gensym("x_$i") for i in 1:nargs]    
+    nargs = max_placeholder_n(e)
+    args = [gensym("x_$i") for i in 1:nargs]
     e_replaced = replace_arg_placeholders(e, args)
     if e_replaced != e
         if is_lambda_function(e_replaced)
