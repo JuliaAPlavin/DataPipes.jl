@@ -146,16 +146,18 @@ function transform_pipe_step(e, prev::Union{Symbol, Nothing})
     fcall = dissect_function_call(e)
     if !isnothing(fcall)
         args = fcall.args
-        args = if length(args) == 1 && is_lambda_function(only(args)) && lambda_function_args(only(args)) == (IMPLICIT_PIPE_ARG,)
-            # pipe step function has a single argument - a lambda function, with a single argument named IMPLICIT_PIPE_ARG
-            block = lambda_function_body(only(args))
-            arg = gensym("innerpipe_arg")
-            steps = process_block(block, arg)
-            expr = :( $(arg) -> $(map(final_expr, steps)...) )
-            expr = replace_arg_placeholders_within_inner_pipe(expr, [arg])
-            [expr]
-        else
-            args
+        args = map(args) do arg
+            if is_lambda_function(arg) && lambda_function_args(arg) == (IMPLICIT_PIPE_ARG,)
+                # pipe step function argument is a lambda function, with a single argument named IMPLICIT_PIPE_ARG
+                block = lambda_function_body(arg)
+                iarg = gensym("innerpipe_arg")
+                steps = process_block(block, iarg)
+                expr = :( $(iarg) -> $(map(final_expr, steps)...) )
+                expr = replace_arg_placeholders_within_inner_pipe(expr, [iarg])
+                expr
+            else
+                arg
+            end
         end
         args = transform_args(fcall.funcname, args)
         args = add_prev_arg_if_needed(fcall.funcname, args, prev)
