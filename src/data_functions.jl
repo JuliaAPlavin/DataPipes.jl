@@ -1,4 +1,4 @@
-import SplitApplyCombine: mapmany
+import SplitApplyCombine: mapmany, mapview
 using Accessors: insert
 
 macro S_str(str)
@@ -10,10 +10,7 @@ end
 (name::Symbol)(x) = getproperty(x, name)
 (name::Val{S})(x) where {S} = getproperty(x, S)
 
-mapmany(f_out::Function, f_in::Function, A) = [
-	f_in(a, b)
-	for a in A
-    for b in f_out(a)]
+mapmany(f_out::Function, f_in::Function, A) = reduce(vcat, mapview(a -> map(b -> f_in(a, b), f_out(a)), A))
 
 mutate_flat(f, A) = map(a -> merge(a, f(a)), A)
 mutate_flat(A; kwargs...) = mutate_flat(a -> map(fx -> fx(a), values(kwargs)), A)

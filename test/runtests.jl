@@ -2,6 +2,8 @@ using SplitApplyCombine
 using DataPipes
 using Test
 using Accessors
+using StructArrays
+
 
 module MyModule
 myfunc(x) = 2x
@@ -21,6 +23,10 @@ end
         @test mapmany(x -> x.a, X) == [1, 2, 3, 4]
         # my method
         @test mapmany(x -> x.a, (x, a) -> (a, sum(x.a)), X) == [(1, 3), (2, 3), (3, 7), (4, 7)]
+
+        Y = mapmany(x -> StructArray(;x.a), (x, a) -> (a, sum(x.a)), X)
+        @test Y == [((a=1,), 3), ((a=2,), 3), ((a=3,), 7), ((a=4,), 7)]
+        @test Y isa StructArray
     end
 
     @testset "mutate" begin
