@@ -210,7 +210,7 @@ end
 add_prev_arg_if_needed(func_fullname, args, prev::Nothing) = args
 function add_prev_arg_if_needed(func_fullname, args, prev)
     # check if there are any prev placeholders in args already
-    need_to_append = !any(args) do arg
+    need_to_append = !any([func_fullname; args]) do arg
         occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : ee == PREV_PLACEHOLDER, arg)
     end
     if need_to_append
