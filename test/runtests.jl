@@ -51,7 +51,7 @@ end
         @test filtermap(x -> x % 3 == 0 ? Some(x^2) : nothing, (1, 2, 3, 4, 5, 6)) === (9, 36)
     end
 
-    @testset "unnest" begin
+    @testset "(un)nest" begin
         @test @inferred(unnest((a=(x=1, y="2"), b=:z))) === (a_x=1, a_y="2", b=:z)
         @test_throws ErrorException unnest((a=(x=1, y="2"), a_x=3, b=:z))
         @test @inferred(unnest((a=(x=1, y=(u="2", w=3)), b=:z))) === (a_x=1, a_y=(u="2", w=3), b=:z)
@@ -66,6 +66,15 @@ end
 
         f = nt -> unnest(nt, :a => nothing)
         @test @inferred(f((a=(x=1, y="2"), b=:z))) === (x=1, y="2", b=:z)
+
+        # @test nest( (a_x=1, a_y="2", a_z_z=3, b=:z), startswith(:a_) ) == (a=(x=1, y="2", z_z=3), b=:z)
+        # @test nest( (x_a=1, y_a="2", z_z_a=3, b=:z), endswith(:_a) ) == (a=(x=1, y="2", z_z=3), b=:z)
+        # @test nest( (x_a=1, y_a="2", z_z_a=3, b_aa=1), endswith(:_a), startswith(:b) ) == (a=(x=1, y="2", z_z=3), b=(aa=1,))
+
+        # @test f( (a_x=1, a_y="2", a_z_z=3, b=:z), x -> (a=(x=x.a_x, y=x.a_y, z_z=x.a_z_z),) )
+        # @test @replace( (name="abc", ra=1, dec=2), (coords=(_.ra, _.dec),) ) == (name="abc", coords=(1, 2))
+        # @test @replace( (name="abc", ra=1, dec=2), (coords=(@o(_.ra), @o(_.dec)),) ) == (name="abc", coords=(1, 2))
+        # @test replace( (name="abc", ra=1, dec=2), @o(_[(:ra, :dec)]) => tuple => @o(_.coords) ) == (name="abc", coords=(1, 2))
     end
 
     @testset "vcat" begin
@@ -405,7 +414,9 @@ end
                 end
             end
         end) == [[1, 2, 3, 4], [5, 6]]
+    end
 
+    @testset "implicit inner pipe" begin
         @test (@p begin
             data
             map() do __
@@ -416,6 +427,15 @@ end
         @test (@p map(__ -> __.values |> map(_ ^ 2), data)) == [[1, 4, 9, 16], [25, 36]]
         @test (@p data |> map(__ -> __.values |> map(_ ^ 2))) == [[1, 4, 9, 16], [25, 36]]
         @test (@p data |> map(__ -> __.values |> map((v2=_ ^ 2, cnt=_ꜛ.values |> length)))) == [[(v2 = 1, cnt = 4), (v2 = 4, cnt = 4), (v2 = 9, cnt = 4), (v2 = 16, cnt = 4)], [(v2 = 25, cnt = 2), (v2 = 36, cnt = 2)]]
+
+        @test (@p begin
+            data
+            map() do (name, __)
+                map(_ ^ 2)
+                sum()
+                (;name, total=__)
+            end
+        end) == [(name="A B", total=30), (name="C", total=61)]
     end
 
     @testset "other base funcs" begin
@@ -627,6 +647,7 @@ end
         @test (@p data |> map(@optic(_.name))) == ["A B", "C"]
         @test (@p data |> map(@set(_.name = "newname")) |> map(_.name)) == ["newname", "newname"]
         @test (@p data |> map(set(_, @optic(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
+        @test (@p data |> map(set(_, @o(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
     end
 
     @testset "explicit arg" begin

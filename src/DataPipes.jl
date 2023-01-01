@@ -1,10 +1,10 @@
 module DataPipes
 
-export @pipe, @pipeDEBUG, @pipefunc, @p, @pDEBUG, @pf, @f, mapmany, mutate, mutate_flat, mutate_seq, mutate_rec, filtermap, unnest, vcat_data
+export @pipe, @pipeDEBUG, @pipefunc, @p, @pDEBUG, @pf, @f, @S_str, mapmany, mutate, mutate_flat, mutate_seq, mutate_rec, filtermap, unnest, vcat_data
 
 include("utils.jl")
-include("pipe.jl")
 include("data_functions.jl")
+include("pipe.jl")
 
 const var"@p" = var"@pipe"
 const var"@pDEBUG" = var"@pipeDEBUG"
@@ -12,13 +12,14 @@ const var"@pf" = var"@pipefunc"
 const var"@f" = var"@pipefunc"
 
 
-# define placeholder characters:
-
-## result of the previous pipeline step
+" Result of the previous pipeline step "
 const PREV_PLACEHOLDER = :__
 
-## the only lambda argument name so that it's treated as implicit inner pipe
+" Name of the lambda argument treated as an implicit inner pipe "
 const IMPLICIT_PIPE_ARG = PREV_PLACEHOLDER
+
+" Replacements to perform within pipes, before other transformations. "
+const REPLACE_IN_PIPE = Dict(S"@o" => S"@optic")
 
 ## function arguments
 is_arg_placeholder(x) = !isnothing(arg_placeholder_n(x))
@@ -41,7 +42,7 @@ end
 
 ## expressions where DataPipes won't replace `_` placeholders with lambda argument
 ignore_underscore_within(e) = false
-ignore_underscore_within(e::Expr) = e.head == :macrocall && e.args[1] ∈ (Symbol("@optic"),)
+ignore_underscore_within(e::Expr) = e.head == :macrocall && e.args[1] ∈ (S"@optic",)
 
 module NoAbbr
 import ..@pipe, ..@pipefunc
