@@ -150,6 +150,17 @@ function process_pipe_step(e, prev)
     )
 end
 
+struct ArgBody end
+Accessors.OpticStyle(::Type{<:ArgBody}) = Accessors.ModifyBased()
+Accessors.modify(f, arg, ::ArgBody) = f(arg)
+Accessors.modify(f, arg::Expr, ::ArgBody) =
+    if arg.head == :kw
+        @assert length(arg.args) == 2
+        Expr(:kw, arg.args[1], f(arg.args[2]))
+    else
+        f(arg)
+    end
+
 # symbol as the first pipeline step: keep as-is
 transform_pipe_step(e::Symbol, prev::Nothing) = e
 # symbol as latter pipeline steps: generally represents a function call
@@ -158,7 +169,7 @@ function transform_pipe_step(e, prev::Union{Symbol, Nothing})
     fcall = dissect_function_call(e)
     if !isnothing(fcall)
         args = fcall.args
-        args = map(args) do arg
+        args = @modify(args |> Elements() |> ArgBody()) do arg
             if is_lambda_function(arg) && occursin_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg))
                 # pipe step function argument is a lambda function, with an argument or a part of an argument named IMPLICIT_PIPE_ARG
                 @assert count_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg)) == 1
