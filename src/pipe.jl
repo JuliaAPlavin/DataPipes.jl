@@ -46,7 +46,7 @@ function pipe_macro(block; debug=false)
 end
 
 function process_block(block, initial_arg)
-    exprs = get_exprs(block)
+    exprs = get_exprs(block) |> expand_docstrings
     steps = []
     prev = initial_arg
     for e in exprs
@@ -84,6 +84,16 @@ elseif block.head == :call
 else
     # everything else
     [block]
+end
+
+expand_docstrings(exprs) = mapreduce(vcat, exprs) do e
+    if e isa Expr && e.head == :macrocall && e.args[1] == GlobalRef(Core, S"@doc")
+        @assert e.args[2] isa LineNumberNode
+        @assert e.args[3] isa String
+        e.args[3:4]
+    else
+        [e]
+    end
 end
 
 Base.@kwdef struct PipeStep
