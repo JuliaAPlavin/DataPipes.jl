@@ -52,17 +52,20 @@ end
     end
 
     @testset "unnest" begin
-        @test unnest((a=(x=1, y="2"), b=:z)) === (a_x=1, a_y="2", b=:z)
+        @test @inferred(unnest((a=(x=1, y="2"), b=:z))) === (a_x=1, a_y="2", b=:z)
         @test_throws ErrorException unnest((a=(x=1, y="2"), a_x=3, b=:z))
-        @test_broken unnest((a=(x=1, y=(u="2", w=3)), b=:z)) === (a_x=1, a_y_u="2", a_y_w=3, b=:z)
-        @test unnest1((a=(x=1, y=(u="2", w=3)), b=:z)) === (a_x=1, a_y=(u="2", w=3), b=:z)
+        @test @inferred(unnest((a=(x=1, y=(u="2", w=3)), b=:z))) === (a_x=1, a_y=(u="2", w=3), b=:z)
 
-        # @test unnest((a=(x=1, y="2"), b=:z), ()) === (a=(x=1, y="2"), b=:z)
-        # @test unnest((a=(x=1, y="2"), b=:z), (:a,)) === (a_x=1, a_y="2", b=:z)
-        # @test_throws ArgumentError unnest((a=(x=1, y="2"), b=:z), (:a, :b))
+        f = nt -> unnest(nt, ())
+        @test @inferred(f((a=(x=1, y="2"), b=:z))) === (a=(x=1, y="2"), b=:z)
+        f = nt -> unnest(nt, (:a,))
+        @test @inferred(f((a=(x=1, y="2"), b=:z))) === (a_x=1, a_y="2", b=:z)
+        f = nt -> unnest(nt, :a)
+        @test @inferred(f((a=(x=1, y="2"), b=:z))) === (a_x=1, a_y="2", b=:z)
+        @test_throws ErrorException unnest((a=(x=1, y="2"), b=:z), (:a, :b))
 
-        # @test unnest((a=(x=1, y="2"), b=:z), Val(:_)) === (a_x=1, a_y="2", b=:z)
-        # @test unnest((a=(x=1, y="2"), b=:z), Val(Symbol())) === (ax=1, ay="2", b=:z)
+        f = nt -> unnest(nt, :a => nothing)
+        @test @inferred(f((a=(x=1, y="2"), b=:z))) === (x=1, y="2", b=:z)
     end
 end
 

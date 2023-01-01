@@ -1,6 +1,6 @@
 module DataPipes
 
-export @pipe, @pipeDEBUG, @pipefunc, @p, @pDEBUG, @pf, @f, mapmany, mutate, mutate_flat, mutate_seq, mutate_rec, filtermap, unnest, unnest1
+export @pipe, @pipeDEBUG, @pipefunc, @p, @pDEBUG, @pf, @f, mapmany, mutate, mutate_flat, mutate_seq, mutate_rec, filtermap, unnest
 
 include("utils.jl")
 include("pipe.jl")
