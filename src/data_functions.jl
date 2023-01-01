@@ -10,7 +10,8 @@ end
 (name::Symbol)(x) = getproperty(x, name)
 (name::Val{S})(x) where {S} = getproperty(x, S)
 
-mapmany(f_out::Function, f_in::Function, A) = reduce(vcat, mapview(a -> map(b -> f_in(a, b), f_out(a)), A))
+# likely can replace with a SAC.mapmany call after https://github.com/JuliaData/SplitApplyCombine.jl/pull/54
+mapmany(f_out::Function, f_in::Function, A) = reduce(vcat, map(a -> map(b -> f_in(a, b), f_out(a)), A))
 
 mutate_flat(f, A) = map(a -> merge(a, f(a)), A)
 mutate_flat(A; kwargs...) = mutate_flat(a -> map(fx -> fx(a), values(kwargs)), A)
@@ -95,5 +96,5 @@ vcat_data(ds...; kwargs...) = reduce(vcat_data, ds; kwargs...)
 function Base.reduce(::typeof(vcat_data), ds; source=nothing)
     isnothing(source) ?
         reduce(vcat, ds) :
-        mapmany(((k, d),) -> d, ((k, d), x) -> insert(x, source, k), pairs(ds))
+        mapmany(((k, d),) -> d, ((k, d), x) -> insert(x, source, k), zip(keys(ds), values(ds)))
 end
