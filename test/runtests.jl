@@ -413,6 +413,7 @@ end
                 map(_ ^ 2)
             end
         end) == [[1, 4, 9, 16], [25, 36]]
+        @test (@p map(__ -> __.values |> map(_ ^ 2), data)) == [[1, 4, 9, 16], [25, 36]]
         @test (@p data |> map(__ -> __.values |> map(_ ^ 2))) == [[1, 4, 9, 16], [25, 36]]
         @test (@p data |> map(__ -> __.values |> map((v2=_ ^ 2, cnt=_ꜛ.values |> length)))) == [[(v2 = 1, cnt = 4), (v2 = 4, cnt = 4), (v2 = 9, cnt = 4), (v2 = 16, cnt = 4)], [(v2 = 25, cnt = 2), (v2 = 36, cnt = 2)]]
     end
