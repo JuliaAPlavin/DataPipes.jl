@@ -1,12 +1,13 @@
 module DataPipes
 
-export @pipe, @pipefunc, @p, @pf, @f, mapmany, mutate, mutate_flat, mutate_seq, mutate_rec, filtermap
+export @pipe, @pipeDEBUG, @pipefunc, @p, @pDEBUG, @pf, @f, mapmany, mutate, mutate_flat, mutate_seq, mutate_rec, filtermap
 
 include("utils.jl")
 include("pipe.jl")
 include("data_functions.jl")
 
 const var"@p" = var"@pipe"
+const var"@pDEBUG" = var"@pipeDEBUG"
 const var"@pf" = var"@pipefunc"
 const var"@f" = var"@pipefunc"
 

@@ -809,6 +809,54 @@ end
         end) == [55, 110, 165, 220, 275]
     end
 
+    @testset "debug mode" begin
+        @test (@pDEBUG begin
+            1:5
+            map(_ * 2)
+            res_a = filter(_ > 3)
+        end) == [4, 6, 8, 10]
+        @test (@pDEBUG begin
+            1:5
+            map(_ * 2)
+            @aside res_a = filter(_ > 3)
+            map((_1, _2), __, res_a)
+        end) == [(2, 4), (4, 6), (6, 8), (8, 10)]
+        # @test doesn't populate variables outside, so we'll run the same pipes again
+
+        let
+            @pDEBUG begin
+                1:5
+                map(_ * 2)
+                res_a = filter(_ > 3)
+            end
+            @test _pipe == [1:5, 2:2:10, [4, 6, 8, 10]]
+            @test res_a == [4, 6, 8, 10]
+        end
+
+        let
+            @pDEBUG begin
+                1:5
+                map(_ * 2)
+                @aside res_a = filter(_ > 3)
+                map((_1, _2), __, res_a)
+            end
+            @test _pipe == [1:5, 2:2:10, [4, 6, 8, 10], [(2, 4), (4, 6), (6, 8), (8, 10)]]
+            @test res_a == [4, 6, 8, 10]
+        end
+
+        let
+            f() = @pDEBUG begin
+                10:10:50
+                map(_ * 2)
+                @aside res_a = filter(_ > 30)
+                map((_1, _2), __, res_a)
+            end
+            f()
+            @test _pipe == [10:10:50, 20:20:100, [40, 60, 80, 100], [(20, 40), (40, 60), (60, 80), (80, 100)]]
+            @test res_a == [40, 60, 80, 100]
+        end
+    end
+
     @testset "errors" begin
         @test_throws UndefVarError @pipe begin
             data
