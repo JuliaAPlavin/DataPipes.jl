@@ -83,6 +83,19 @@ unqualified_name(e::Expr) = let
     end
 end
 
+
+modify_argbody(f, arg) = f(arg)
+modify_argbody(f, arg::Expr) =
+    if arg.head == :kw
+        # single kwarg
+        @assert length(arg.args) == 2
+        Expr(:kw, arg.args[1], f(arg.args[2]))
+    else
+        # positional argument
+        f(arg)
+    end
+
+
 # macro for Symbol
 macro S_str(str)
     :(Symbol($(esc(str))))

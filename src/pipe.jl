@@ -151,15 +151,6 @@ function process_pipe_step(e, prev)
 end
 
 
-modify_argbody(f, arg) = f(arg)
-modify_argbody(f, arg::Expr) =
-    if arg.head == :kw
-        @assert length(arg.args) == 2
-        Expr(:kw, arg.args[1], f(arg.args[2]))
-    else
-        f(arg)
-    end
-
 # symbol as the first pipeline step: keep as-is
 transform_pipe_step(e::Symbol, prev::Nothing) = e
 # symbol as latter pipeline steps: generally represents a function call
@@ -188,7 +179,7 @@ function transform_pipe_step(e, prev::Union{Symbol, Nothing})
                 end
             end
         end
-        args = transform_args(fcall.funcname, args)
+        args = transform_args(args)
         args = add_prev_arg_if_needed(fcall.funcname, args, prev)
         args = sort(args; by=a -> a isa Expr && a.head == :parameters, rev=true)
         :( $(fcall.funcname)($(args...)) )
@@ -278,42 +269,26 @@ function search_macro_flag(expr::Expr, macroname::Symbol)
     expr, found
 end
 
-transform_args(func_fullname, args) = map(enumerate(args)) do (i, arg)
-    transform_arg(arg, func_fullname, i)
-end
+transform_args(args) = map(transform_arg, args)
 
-function transform_arg(arg::Expr, func_fullname, i::Union{Int, Nothing})
+function transform_arg(arg::Expr)
     if arg isa Expr && arg.head == :parameters
         # arg is multiple kwargs, with preceding ';'
         Expr(arg.head, map(arg.args) do arg
-            transform_arg(arg, func_fullname, nothing)
+            transform_arg(arg)
         end...)
     elseif arg.head == :kw
         # is a kwarg
         @assert length(arg.args) == 2
         key, value = arg.args
-        nargs = func_nargs(func_fullname, key)
-        Expr(:kw, key, func_or_body_to_func(value, nargs))
+        Expr(:kw, key, func_or_body_to_func(value))
     else
-        nargs = func_nargs(func_fullname, i)
-        func_or_body_to_func(arg, nargs)
+        func_or_body_to_func(arg)
     end
 end
 
-function transform_arg(arg, func_fullname, i::Union{Int, Nothing})
-    nargs = func_nargs(func_fullname, i)
-    func_or_body_to_func(arg, nargs)
-end
+transform_arg(arg) = func_or_body_to_func(arg)
 
-# expected number of arguments in argix'th argument of func if this arg is a function itself
-# this sets the minimum, additional underscores always get converted to more arguments
-func_nargs(func, argix) = func_nargs(Val(unqualified_name(func)), argix)
-func_nargs(func::Val, argix::Union{Int, Symbol, Nothing}) = func_nargs(func, Val(argix))
-func_nargs(func::Val, argix::Val) = 0
-func_nargs(func::Val{:mapmany}, argix::Val{2}) = 2
-func_nargs(func::Val{:product}, argix::Val{1}) = 2
-func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{3}) = 2
-func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{4}) = 2
 
 is_pipecall(e) = false
 is_pipecall(e::Expr) = let
@@ -322,8 +297,8 @@ is_pipecall(e::Expr) = let
     return is_macro || is_implicitpipe
 end
 
-function func_or_body_to_func(e, nargs::Int)
-    nargs = max(nargs, max_placeholder_n(e))
+function func_or_body_to_func(e)
+    nargs = max_placeholder_n(e)
 
     args = [gensym("x_$i") for i in 1:nargs]    
     e_replaced = replace_arg_placeholders(e, args)
