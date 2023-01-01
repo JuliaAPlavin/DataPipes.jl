@@ -1,22 +1,56 @@
-# Overview
+# DataPipes.jl
 
-Piping package for Julia.
-`DataPipes` inteface is designed with common data processing functions (e.g., `map` and `filter`) in mind, but is not specifically tied to them and can be used for all kinds of pipelines. This package is extensively tested, and I almost always use it myself for data manipulation.
+Function piping with the focus on making general data processing boilerplate-free.
 
-Even with multiple existing implementations of the general piping concept, I didn't find one that is convenient enough while still remaining general.
-Unlike many ([1](https://github.com/jkrumbiegel/Chain.jl), [2](https://github.com/FNj/Hose.jl), [3](https://github.com/oxinabox/Pipe.jl); all?) other alternatives, `DataPipes`:
-- Gets rid of basically all the boilerplate for functions that follow the common Julia argument order
-- Can be plugged in as a step of a vanilla pipeline
-- Can easily export the result of an intermediate step
+There are multiple implementation of the piping concept in Julia: [1](https://github.com/c42f/Underscores.jl), [2](https://github.com/jkrumbiegel/Chain.jl), [3](https://github.com/FNj/Hose.jl), [4](https://github.com/oxinabox/Pipe.jl), maybe even more. `DataPipes` design is focused on usual data processing and analysis tasks. What makes `DataPipes` distinct from other packages is that it ticks all these points:
 
-If I missed another implementation that also ticks these points, please let me know.
+- [x] Gets rid of basically all boilerplate for common data processing functions:
+```julia
+@p tbl |> filter(_.a > 5) |> map(_.b + _.c)
+```
+- [x] Can be inserted in as a step of a vanilla Julia pipeline without modifying the latter:
+```julia
+tbl |> sum  # before
+tbl |> @f(map(_ ^ 2) |> filter(_ > 5)) |> sum  # after
+```
+- [x] Can define a function transforming the data instead of immediately applying it
+```julia
+func = @f map(_ ^ 2) |> filter(_ > 5) |> sum  # define func
+func(tbl)  # apply it
+```
+- [x] Supports easily exporting the result of an intermediate pipeline step
+```julia
+@p let
+    tbl
+    @export tbl_filt = filter(_.a > 5)  # export a single intermediate result
+    map(_.b + _.c)
+end
 
-`DataPipes` tries to minimally modify regular Julia syntax and aims to stay composable both with other instruments (vanilla pipelines, other packages) and with itself (nested pipes). See usage examples below.
+@p begin  # use begin instead of let to make all intermediate results available afterwards
+    tbl
+    tbl_filt = filter(_.a > 5)
+    map(_.b + _.c)
+end
 
-# Usage
+# tbl_filt is available here
+```
+- [x] Provides no-boilerplate nesting
+```julia
+@p let
+	"a=1 b=2 c=3"
+	split
+	map() do __  # `__` turns the inner function into a pipeline
+		split(__, '=')
+		Symbol(__[1]) => parse(Int, __[2])
+	end
+	NamedTuple
+end  # == (a = 1, b = 2, c = 3)
+```
 
-Simple example of processing tabular data:
 
+As demonstrated, `DataPipes` tries to minimally modify regular Julia syntax and stays fully composable both with other instruments _(vanilla pipelines)_ and with itself _(nested pipes)_.
+
+These traits make `DataPipes` convenient for both working with flat tabular data, and for processing nested structures. An example of the former:
 ```julia
 @p begin
     tbl
@@ -26,18 +60,4 @@ Simple example of processing tabular data:
     map(sum(_.age))
 end
 ```
-
-This is adapted from the `Chain.jl` example, replacing all `DataFrames.jl`-specific operations with general functions applicable to a wide range of tables: eg, it works with `StructArrays`.
-
-For comparison, the original `Chain.jl` example:
-
-```julia
-@chain df begin
-  dropmissing
-  filter(:id => >(6), _)
-  groupby(:group)
-  combine(:age => sum)
-end
-```
-
-`DataPipes.jl` remains convenient for processing nested data as well. See [the Pluto notebook](https://aplavin.github.io/DataPipes.jl/examples/notebook.html) for a set of worked out data manipulation steps, and for more extensive documentation.
+_(adapted from the Chain.jl README; all DataFrames-specific operations replaced with general functions)_
