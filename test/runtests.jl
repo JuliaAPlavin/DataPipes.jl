@@ -458,6 +458,8 @@ end
                 (;name, total=__)
             end
         end) == [(name="A B", total=30), (name="C", total=61)]
+
+        @test @p(1:3 |> sort(by=__ -> map(-_))) == [3, 2, 1]
     end
 
     @testset "other base funcs" begin
