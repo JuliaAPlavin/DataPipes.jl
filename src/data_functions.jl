@@ -56,3 +56,24 @@ end
 function filtermap(f, A::Tuple)
     map(something, filter(!isnothing, map(f, A)))
 end
+
+
+@generated function unnest1(nt::NamedTuple{KS, TS}) where {KS, TS}
+    types = fieldtypes(TS)
+    assigns = mapreduce(vcat, KS, types) do k, T
+        if T <: NamedTuple
+            ks = fieldnames(T)
+            ks_new = [Symbol(k, :_, k_) for k_ in ks]
+            map(ks, ks_new) do k_, k_n
+                :( $k_n = nt.$k.$k_ )
+            end
+        else
+            :( $k = nt.$k )
+        end
+    end
+    quote
+        ($(assigns...),)
+    end
+end
+
+const unnest = unnest1
