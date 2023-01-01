@@ -66,3 +66,6 @@ These traits make `DataPipes` convenient for both working with flat tabular data
 end
 ```
 _(adapted from the Chain.jl README; all DataFrames-specific operations replaced with general functions)_
+
+
+See [the Pluto notebook](https://aplavin.github.io/DataPipes.jl/examples/notebook.html) for more examples and more extensive `DataPipes` syntax description.
