@@ -187,7 +187,8 @@ transform_pipe_step(e::Symbol, prev::Nothing) = e
 # symbol as latter pipeline steps: generally represents a function call
 transform_pipe_step(e::Symbol, prev::Symbol) = e == PREV_PLACEHOLDER ? prev : :($(e)($(prev)))
 function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing})
-    if !isnothing(prev) && e.head == :(.)
+    if !isnothing(prev) && is_qualified_name(e)
+        # qualified function name, as in Iterators.map
         return occursin_expr(==(PREV_PLACEHOLDER), e) ? e : :($(e)($(prev)))
     end
 
