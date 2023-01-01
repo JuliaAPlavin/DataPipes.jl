@@ -24,6 +24,12 @@ end
         # my method
         @test mapmany(x -> x.a, (x, a) -> (a, sum(x.a)), X) == [(1, 3), (2, 3), (3, 7), (4, 7)]
 
+        cnt_out = Ref(0)
+        cnt_in = Ref(0)
+        @test mapmany(i -> [cnt_out[] += 1], (i, j) -> (cnt_in[] += 1), 1:3) == [1, 2, 3]
+        @test cnt_out[] == 3
+        @test cnt_in[] == 3
+
         Y = mapmany(x -> StructArray(;x.a), (x, a) -> (a, sum(x.a)), X)
         @test Y == [((a=1,), 3), ((a=2,), 3), ((a=3,), 7), ((a=4,), 7)]
         @test Y isa StructArray
