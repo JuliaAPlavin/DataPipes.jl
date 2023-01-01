@@ -2,12 +2,12 @@
 
 Function piping with the focus on making general data processing boilerplate-free.
 
-[![CI](https://github.com/aplavin/DataPipes.jl/actions/workflows/main.yml/badge.svg)](https://github.com/aplavin/DataPipes.jl/actions/workflows/main.yml) `DataPipes.jl` is extensively tested with full coverage and more test lines than the actual code.
+![](https://img.shields.io/badge/tests-passing-brightgreen?logo=github) `DataPipes.jl` is extensively tested with full coverage and more test lines than the actual code.
 
-_Questions other than direct bug reports are best asked in the [discouse thread](https://discourse.julialang.org/t/ann-datapipes-jl/60734)._
+_Questions other than direct bug reports are best asked in the [![](https://img.shields.io/badge/discourse-topic-brightgreen?logo=discourse)](https://discourse.julialang.org/t/ann-datapipes-jl/60734)._
 
 
-There are multiple implementation of the piping concept in Julia: [1](https://github.com/c42f/Underscores.jl), [2](https://github.com/jkrumbiegel/Chain.jl), [3](https://github.com/FNj/Hose.jl), [4](https://github.com/oxinabox/Pipe.jl), maybe even more. `DataPipes` design is focused on usual data processing and analysis tasks. What makes `DataPipes` distinct from other packages is that it ticks all these points:
+![](https://img.shields.io/badge/motivation-why%3F-brightgreen) There are multiple implementation of the piping concept in Julia: [1](https://github.com/c42f/Underscores.jl), [2](https://github.com/jkrumbiegel/Chain.jl), [3](https://github.com/FNj/Hose.jl), [4](https://github.com/oxinabox/Pipe.jl), maybe even more. `DataPipes` design is focused on usual data processing and analysis tasks. What makes `DataPipes` distinct from other packages is that it ticks all these points:
 
 - [x] Gets rid of basically all boilerplate for common data processing functions:
 ```julia
@@ -68,4 +68,4 @@ end
 _(adapted from the Chain.jl README; all DataFrames-specific operations replaced with general functions)_
 
 
-See [the Pluto notebook](https://aplavin.github.io/DataPipes.jl/examples/notebook.html) for more examples and more extensive `DataPipes` syntax description.
+![](https://img.shields.io/badge/docs-examples-brightgreen?logo=julia) See [the Pluto notebook](https://aplavin.github.io/DataPipes.jl/examples/notebook.html) for more examples and more extensive `DataPipes` syntax description.
