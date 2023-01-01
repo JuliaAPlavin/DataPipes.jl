@@ -192,6 +192,7 @@ function dissect_function_call(e::Expr)
         # regular function call: map(a, b)
         (funcname=e.args[1], args=e.args[2:end])
     elseif e.head == :do
+        e.args[1].head == :macrocall && return nothing  # don't process _ in macro arguments; __ is substituted elsewhere
         # do-call: map(a) do ... end
         @assert length(e.args) == 2  # TODO: any issues with supporting more args?
         @assert e.args[1].head == :call
