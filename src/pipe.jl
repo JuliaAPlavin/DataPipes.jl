@@ -325,7 +325,7 @@ end
 # this sets the minimum, additional underscores always get converted to more arguments
 func_nargs(func, argix) = func_nargs(Val(unqualified_name(func)), argix)
 func_nargs(func::Val, argix::Union{Int, Symbol, Nothing}) = func_nargs(func, Val(argix))
-func_nargs(func::Val, argix::Val) = 0  # so that _ is replaced everywhere
+func_nargs(func::Val, argix::Val) = 0
 func_nargs(func::Val{:mapmany}, argix::Val{2}) = 2
 func_nargs(func::Val{:product}, argix::Val{1}) = 2
 func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{3}) = 2
@@ -338,8 +338,6 @@ is_pipecall(e::Expr) = let
     return is_macro || is_implicitpipe
 end
 
-# if contains "_"-like placeholder: transform to function
-# otherwise keep as-is
 function func_or_body_to_func(e, nargs::Int)
     nargs = max(nargs, max_placeholder_n(e))
 
