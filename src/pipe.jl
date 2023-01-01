@@ -61,12 +61,11 @@ end
 get_exprs(block) = [block]
 get_exprs(block::Tuple) = block
 get_exprs(block::Expr) = if block.head == :block
-    # block like `begin ... end`
+    # block `begin ... end`
     exprs = block.args
     exprs_noln = filter(e -> !(e isa LineNumberNode), exprs)
-    if length(exprs_noln) == 1
-        get_exprs(only(exprs_noln))
-    else
+    length(exprs_noln) == 1 ?
+        get_exprs(only(exprs_noln)) :
         exprs
 elseif block.head == :let
     # block `let ... end`
@@ -83,9 +82,6 @@ elseif block.head == :call && block.args[1] == :(|>)
     end
     pushfirst!(exprs, block)
     exprs
-elseif block.head == :call
-    # single function call
-    [block]
 else
     # everything else
     [block]
