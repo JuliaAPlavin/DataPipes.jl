@@ -179,7 +179,11 @@ function transform_pipe_step(e, prev::Union{Symbol, Nothing})
                 end
             end
         end
-        args = transform_args(args)
+        args = map(args) do arg
+            modify_argbody(arg) do arg
+                func_or_body_to_func(arg)
+            end
+        end
         args = add_prev_arg_if_needed(fcall.funcname, args, prev)
         args = sort(args; by=a -> a isa Expr && a.head == :parameters, rev=true)
         :( $(fcall.funcname)($(args...)) )
@@ -268,26 +272,6 @@ function search_macro_flag(expr::Expr, macroname::Symbol)
     end
     expr, found
 end
-
-transform_args(args) = map(transform_arg, args)
-
-function transform_arg(arg::Expr)
-    if arg isa Expr && arg.head == :parameters
-        # arg is multiple kwargs, with preceding ';'
-        Expr(arg.head, map(arg.args) do arg
-            transform_arg(arg)
-        end...)
-    elseif arg.head == :kw
-        # is a kwarg
-        @assert length(arg.args) == 2
-        key, value = arg.args
-        Expr(:kw, key, func_or_body_to_func(value))
-    else
-        func_or_body_to_func(arg)
-    end
-end
-
-transform_arg(arg) = func_or_body_to_func(arg)
 
 
 is_pipecall(e) = false

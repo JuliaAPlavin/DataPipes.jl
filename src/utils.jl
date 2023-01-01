@@ -86,7 +86,12 @@ end
 
 modify_argbody(f, arg) = f(arg)
 modify_argbody(f, arg::Expr) =
-    if arg.head == :kw
+    if arg.head == :parameters
+        # multiple kwargs, with preceding ';'
+        Expr(arg.head, map(arg.args) do arg
+            modify_argbody(f, arg)
+        end...)
+    elseif arg.head == :kw
         # single kwarg
         @assert length(arg.args) == 2
         Expr(:kw, arg.args[1], f(arg.args[2]))
