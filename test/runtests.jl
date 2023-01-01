@@ -71,7 +71,7 @@ end
             end)
         end) == ["A B", "C"]
 
-        @test_broken (@pipe begin
+        @test (@pipe begin
             data
             map(function(_)
                 _.name
@@ -87,8 +87,9 @@ end
 
         @test (@pipe map(_.name, data)) == ["A B", "C"]
 
-        @test_broken @p(1:4 |> Base.identity) == 1:4
+        @test @p(1:4 |> Base.identity) == 1:4
         @test @p("abc" |> map(_ + 1)) == "bcd"
+        @test @p(2+1im |> __.re) == 2
 
         @test let
             f(x) = x^2

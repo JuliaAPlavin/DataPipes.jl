@@ -40,7 +40,7 @@ is_kwexpr(e) = false
 is_kwexpr(e::Expr) = e.head == :kw
 
 is_lambda_function(e) = false
-is_lambda_function(e::Expr) = e.head == :(->)
+is_lambda_function(e::Expr) = e.head == :(->) || e.head == :function
 lambda_function_args(e::Expr) = if e.args[1] isa Symbol
     (e.args[1],)
 else
