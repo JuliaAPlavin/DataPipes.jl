@@ -57,23 +57,32 @@ function filtermap(f, A::Tuple)
     map(something, filter(!isnothing, map(f, A)))
 end
 
+struct KeepSame end
 
-@generated function unnest1(nt::NamedTuple{KS, TS}) where {KS, TS}
+@generated function _unnest(nt::NamedTuple{KS, TS}, ::Val{KEYS}=Val(nothing), ::Val{TARGET}=Val(KeepSame())) where {KS, TS, KEYS, TARGET}
     types = fieldtypes(TS)
     assigns = mapreduce(vcat, KS, types) do k, T
-        if T <: NamedTuple
+        if !isnothing(KEYS) && k ∈ KEYS && !(T <: NamedTuple)
+            error("Cannot unnest field $k::$T")
+        end
+
+        if (isnothing(KEYS) || k ∈ KEYS) && T <: NamedTuple
             ks = fieldnames(T)
-            ks_new = [Symbol(k, :_, k_) for k_ in ks]
+            tgt_k = TARGET isa KeepSame ? k : TARGET
+            ks_new = map(ks) do k_
+                isnothing(tgt_k) ? k_ : Symbol(tgt_k, :_, k_)
+            end
             map(ks, ks_new) do k_, k_n
                 :( $k_n = nt.$k.$k_ )
-            end
+            end |> collect
         else
             :( $k = nt.$k )
         end
     end
-    quote
-        ($(assigns...),)
-    end
+    :( ($(assigns...),) )
 end
 
-const unnest = unnest1
+@inline unnest(nt::NamedTuple) = _unnest(nt)
+@inline unnest(nt::NamedTuple, k::Symbol) = _unnest(nt, Val((k,)))
+@inline unnest(nt::NamedTuple, kv::Pair{Symbol, <:Union{Symbol, Nothing}}) = _unnest(nt, Val((first(kv),)), Val(last(kv)))
+@inline unnest(nt::NamedTuple, ks::Tuple{Vararg{Symbol}}) = _unnest(nt, Val(ks))
