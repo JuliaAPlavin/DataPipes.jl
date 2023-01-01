@@ -687,6 +687,9 @@ end
             data
             (__)[1].values[1]
         end) == 1
+
+        @test (@p (x -> x + 1) |> __(1)) == 2
+        @test (@p (x -> !x) |> (!__)(true)) == true
         
         @test (@pipe begin
             (1, 2, 3)
