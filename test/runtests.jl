@@ -23,6 +23,13 @@ end
         # my method
         @test mapmany(x -> x.a, (x, a) -> (a, sum(x.a)), X) == [(1, 3), (2, 3), (3, 7), (4, 7)]
 
+        # mutating methods
+        out = Int[]
+        @test mapmany!(out, x -> x.a, X) === out == [1, 2, 3, 4]
+        out = Tuple{Int, Int}[]
+        @test mapmany!(out, x -> x.a, (x, a) -> (a, sum(x.a)), X) === out == [(1, 3), (2, 3), (3, 7), (4, 7)]
+
+
         cnt_out = Ref(0)
         cnt_in = Ref(0)
         @test mapmany(i -> [cnt_out[] += 1], (i, j) -> (cnt_in[] += 1), 1:3) == [1, 2, 3]

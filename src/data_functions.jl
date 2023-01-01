@@ -9,8 +9,29 @@ end
 
 (name::Symbol)(x) = getproperty(x, name)
 
+
+# mapmany methods
+function mapmany!(out, f::Function, A)
+    empty!(out)
+    for a in A
+        append!(out, f(a))
+    end
+    out
+end
+
 # likely can replace with a SAC.mapmany call after https://github.com/JuliaData/SplitApplyCombine.jl/pull/54
 mapmany(f_out::Function, f_in::Function, A) = reduce(vcat, map(a -> map(b -> f_in(a, b), f_out(a)), A))
+
+function mapmany!(out, f_out::Function, f_in::Function, A)
+    empty!(out)
+    for a in A
+        for b in f_out(a)
+            push!(out, f_in(a, b))
+        end
+    end
+    out
+end
+
 
 mutate_flat(f, A) = map(a -> merge(a, f(a)), A)
 mutate_flat(A; kwargs...) = mutate_flat(a -> map(fx -> fx(a), values(kwargs)), A)
