@@ -1,8 +1,6 @@
-using SplitApplyCombine
 using DataPipes
 using Test
 using Accessors
-using StructArrays
 
 
 module MyModule
@@ -219,6 +217,13 @@ data_original = copy(data)
     @test f(1:2) === nothing
 end
 
+@testset "pipe broadcast" begin
+    @test @p(-4:2 |> map(_ + 1) .|> abs |> sum) == 12
+    @test_broken @p(-4:2 |> map(_ + 1) .|> abs(__) |> sum) == 12
+    @test @p([[1, 2], [3]] .|> map(_ + 1)) == [[2, 3], [4]]
+    @test_broken @p([[1, 2], [3]] .|> map(_ + 1, __)) == [[2, 3], [4]]
+end
+
 @testset "composable pipe" begin
     @test @pipe(begin
         data
@@ -428,64 +433,6 @@ end
     end) == 85
 
     @test (@p 1:5 |> Iterators.product(__, [1, 2]) |> collect) == [(1, 1) (1, 2); (2, 1) (2, 2); (3, 1) (3, 2); (4, 1) (4, 2); (5, 1) (5, 2)]
-end
-
-@testset "SAC funcs" begin
-    @test (@pipe begin
-        data
-        mapmany(_.values)
-        group(_ % 2)
-        pairs()
-        collect()
-    end) == [1 => [1, 3, 5], 0 => [2, 4, 6]]
-    
-    @test (@pipe begin
-        data
-        mapmany(_.values)
-        SplitApplyCombine.group(_ % 2)
-        pairs()
-        collect()
-    end) == [1 => [1, 3, 5], 0 => [2, 4, 6]]
-
-    @test (@pipe begin
-        data
-        mapmany(_.values)
-        group(_ % 2)
-        map(_[end])
-        pairs()
-        collect()
-    end) == [1 => 5, 0 => 6]
-
-    @test (@pipe begin
-        data
-        mapview(_.name)
-    end) == ["A B", "C"]
-
-    @test (@pipe begin
-        data
-        product(_ + length(_2.values), [0, 1, 2])
-    end) == [4 2; 5 3; 6 4]
-
-    @test (@pipe begin
-        data
-        mapmany(_.values)
-        innerjoin(_ % 2, 1 - _ % 2, (_, _2), 1:3)
-        sort()
-    end) == [(2, 1), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 5), (1, 6), (3, 6)] |> sort
-
-    @test (@pipe begin
-        data
-        mapmany(_.values)
-        innerjoin(_ % 2, 1 - _ % 2, (_, _2), _ == _2, 1:3)
-        sort()
-    end) == [(2, 1), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 5), (1, 6), (3, 6)] |> sort
-
-    @test (@pipe begin
-        data
-        mapmany(_.values)
-        innerjoin(identity, identity, (_, _2), _ % 2 != _2 % 2, 1:3)
-        sort()
-    end) == [(2, 1), (1, 2), (3, 2), (2, 3), (1, 4), (3, 4), (2, 5), (1, 6), (3, 6)] |> sort
 end
 
 @testset "Accessors.jl" begin

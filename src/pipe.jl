@@ -66,6 +66,10 @@ function process_block(block, initial_arg)
     return blocktype, steps
 end
 
+struct BroadcastedExpr
+    expr
+end
+
 get_exprs(block) = :let, [block]
 get_exprs(block::Tuple) = :let, block
 get_exprs(block::Expr) = if block.head == :block
@@ -80,11 +84,11 @@ elseif block.head == :let
     @assert isempty(block.args[1].args)
     @assert block.args[2].head == :block
     :let, get_exprs(block.args[2])[2]
-elseif block.head == :call && block.args[1] == :(|>)
+elseif block.head == :call && block.args[1] ∈ (Symbol("|>"), Symbol(".|>"))
     # piped functions like `a |> f1 |> f2`
     exprs = []
-    while block isa Expr && block.head == :call && block.args[1] == :(|>)
-        pushfirst!(exprs, block.args[3])
+    while block isa Expr && block.head == :call && block.args[1] ∈ (Symbol("|>"), Symbol(".|>"))
+        pushfirst!(exprs, block.args[1] == Symbol(".|>") ? BroadcastedExpr(block.args[3]) : block.args[3])
         block = block.args[2]
     end
     pushfirst!(exprs, block)
@@ -154,6 +158,27 @@ function process_pipe_step(e, prev)
         assigns,
         exports,
         is_aside, keep_asis, no_add_prev,
+    )
+end
+
+function process_pipe_step(be::BroadcastedExpr, prev)
+    next = gensym("res")
+    e = be.expr
+    e = prewalk(ee -> get(REPLACE_IN_PIPE, ee, ee), e)
+    e = transform_pipe_step(e, prev)
+    # how exactly this should work in broadcasting?
+    # eg @p [[1, 2], [3]] .|> map((_, length(__)), __)
+    e = replace_in_pipeexpr(e, Dict(PREV_PLACEHOLDER => :(error("__ placeholder not supported in broadcasted pipe steps"))))
+    @assert e.head == :call
+    e = Expr(:., e.args[1], Expr(:tuple, e.args[2:end]...))
+    e = :($(next) = $(e))
+    return PipeStep(;
+        expr_orig=be.expr,
+        expr_transformed=e,
+        res_arg=next,
+        assigns=[],
+        exports=[],
+        is_aside=false, keep_asis=false, no_add_prev=false,
     )
 end
 
