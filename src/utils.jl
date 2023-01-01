@@ -20,15 +20,9 @@ function count_expr(needle::Function, haystack)
     cnt = 0
     prewalk(haystack) do ee
         n = needle(ee)
-        if n isa StopWalk
-            n
-        elseif n
-            cnt += 1
-            ee
-        else
-            @assert !n
-            ee
-        end
+        n isa StopWalk && return n
+        cnt += n::Bool
+        ee
     end
     return cnt
 end
