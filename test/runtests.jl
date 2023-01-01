@@ -526,6 +526,8 @@ end
         @test (@p 1:5 |> sum(init=100) do _
             -_
         end) == 85
+
+        @test (@p 1:5 |> Iterators.product(__, [1, 2]) |> collect) == [(1, 1) (1, 2); (2, 1) (2, 2); (3, 1) (3, 2); (4, 1) (4, 2); (5, 1) (5, 2)]
     end
 
     @testset "my funcs" begin
