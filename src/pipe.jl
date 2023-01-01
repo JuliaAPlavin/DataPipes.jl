@@ -177,6 +177,7 @@ function transform_pipe_step(e, prev::Union{Symbol, Nothing})
         end
         args = transform_args(fcall.funcname, args)
         args = add_prev_arg_if_needed(fcall.funcname, args, prev)
+        args = sort(args; by=a -> a isa Expr && a.head == :parameters, rev=true)
         :( $(fcall.funcname)($(args...)) )
     else
         # pipe step not a function call: keep it as-is
