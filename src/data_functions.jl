@@ -1,9 +1,14 @@
 import SplitApplyCombine: mapmany
 using Accessors: insert
 
+macro S_str(str)
+    # :(Symbol($(esc(str)))) - simple version without interpolation
+    str_interpolated = esc(Meta.parse("\"$(escape_string(str))\""))
+    :(Symbol($str_interpolated))
+end
 
-(name::Symbol)(x) = getfield(x, name)
-(name::Val{S})(x) where {S} = getfield(x, S)
+(name::Symbol)(x) = getproperty(x, name)
+(name::Val{S})(x) where {S} = getproperty(x, S)
 
 mapmany(f_out::Function, f_in::Function, A) = [
 	f_in(a, b)
