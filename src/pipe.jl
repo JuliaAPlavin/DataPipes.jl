@@ -7,12 +7,12 @@ macro pipefunc(exprs...) pipefunc_macro(exprs) end
 
 function pipefunc_macro(block)
     arg = gensym("pipefuncarg")
-    steps = process_block(block, arg)
+    blocktype, steps = process_block(block, arg)
     :( $(arg) -> $(map(final_expr, steps)...) ) |> esc
 end
 
 function pipe_macro(block; debug=false)
-    steps = process_block(block, nothing)
+    blocktype, steps = process_block(block, nothing)
     res_arg = filtermap(res_arg_if_propagated, steps) |> last
     all_exports = mapreduce(exports, vcat, steps)
     all_assigns = mapreduce(assigns, vcat, steps)
@@ -34,7 +34,7 @@ function pipe_macro(block; debug=false)
                 $(res_arg)
             end
         end |> esc
-    else
+    elseif blocktype == :let
         quote
             ($([all_exports..., res_arg]...),) = let ($(all_assigns...))
                 $(map(final_expr, steps)...)
@@ -42,11 +42,18 @@ function pipe_macro(block; debug=false)
             end
             $(res_arg)
         end |> esc
+    elseif blocktype == :begin
+        quote
+            $(map(final_expr, steps)...)
+        end |> esc
+    else
+        error("Unexpected block type: $blocktype")
     end
 end
 
 function process_block(block, initial_arg)
-    exprs = get_exprs(block) |> expand_docstrings
+    blocktype, exprs = get_exprs(block)
+    exprs = expand_docstrings(exprs)
     steps = []
     prev = initial_arg
     for e in exprs
@@ -55,24 +62,23 @@ function process_block(block, initial_arg)
         prev = isnothing(res_arg) ? prev : res_arg
         push!(steps, step)
     end
-    return steps
+    return blocktype, steps
 end
 
-get_exprs(block) = [block]
-get_exprs(block::Tuple) = block
+get_exprs(block) = :let, [block]
+get_exprs(block::Tuple) = :let, block
 get_exprs(block::Expr) = if block.head == :block
     # block `begin ... end`
     exprs = block.args
     exprs_noln = filter(e -> !(e isa LineNumberNode), exprs)
-    length(exprs_noln) == 1 ?
-        get_exprs(only(exprs_noln)) :
-        exprs
+    length(exprs_noln) == 1 && return get_exprs(only(exprs_noln))
+    :begin, exprs
 elseif block.head == :let
     # block `let ... end`
     @assert length(block.args) == 2
     @assert isempty(block.args[1].args)
     @assert block.args[2].head == :block
-    get_exprs(block.args[2])
+    :let, get_exprs(block.args[2])[2]
 elseif block.head == :call && block.args[1] == :(|>)
     # piped functions like `a |> f1 |> f2`
     exprs = []
@@ -81,10 +87,10 @@ elseif block.head == :call && block.args[1] == :(|>)
         block = block.args[2]
     end
     pushfirst!(exprs, block)
-    exprs
+    :let, exprs
 else
     # everything else
-    [block]
+    :let, [block]
 end
 
 expand_docstrings(exprs) = mapreduce(vcat, exprs) do e
@@ -172,7 +178,7 @@ process_implicit_pipe(arg) =
         @assert count_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg)) == 1
         block = lambda_function_body(arg)
         iarg = gensym("innerpipe_arg")
-        steps = process_block(block, iarg)
+        blocktype, steps = process_block(block, iarg)
         new_args = replace_in_pipeexpr(lambda_function_args(arg), Dict(:__ => iarg))
         expr = :( ($(new_args...),) -> $(map(final_expr, steps)...) )
         if lambda_function_args(arg) == (IMPLICIT_PIPE_ARG,)

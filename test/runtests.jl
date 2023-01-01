@@ -631,7 +631,7 @@ end
         @test orig3 == [1, 2, 3, 4]
         @test filt2 == [4, 9, 16]
 
-        @test (@pipe begin
+        @test (@pipe let
             [1, 2, 3, 4]
             map(_^2)
             val, ix = findmax()
@@ -639,7 +639,7 @@ end
         end) == 256
         @test val === nothing && ix === nothing
 
-        @test (@pipe begin
+        @test (@pipe let
             [1, 2, 3, 4]
             map(_^2)
             @export val, ix = findmax()
@@ -649,7 +649,7 @@ end
 
         # test that defining variables beforehand is not required; for some reason, only works in a function
         f = () -> begin
-            r = @pipe begin
+            r = @pipe let
                 [1, 2, 3, 4]
                 map(_^2)
                 @export val1, ix1 = findmax()
@@ -658,6 +658,14 @@ end
             return r, val1, ix1
         end
         @test f() == (256, 16, 4)
+
+        @test (@pipe begin
+            [1, 2, 3, 4]
+            map(_^2)
+            valb, ixb = findmax()
+            @asis val^2
+        end) == 256
+        @test val == 16 && ix == 4
     end
 
     @testset "aside" begin
