@@ -37,7 +37,14 @@ end
 
 
 is_kwexpr(e) = false
-is_kwexpr(e::Expr) = e.head == :kw
+is_kwexpr(e::Expr) =
+    e.head == :kw ||  # semicolon kwargs such as (; a=1)
+    e.head == :(=) && e.args[1] isa Symbol  # no-semicolon kwargs such as (a=1,)
+function reassemble_kwexpr(e::Expr, args...)
+    @assert is_kwexpr(e)
+    @assert length(args) == length(e.args)
+    Expr(e.head, args...)
+end
 
 is_lambda_function(e) = false
 is_lambda_function(e::Expr) = e.head == :(->) || e.head == :function
