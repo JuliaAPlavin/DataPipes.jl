@@ -162,16 +162,13 @@ function process_pipe_step(e, prev)
 end
 
 function process_pipe_step(be::BroadcastedExpr, prev)
+    prev_elt = gensym("prev_elt")
     next = gensym("res")
     e = be.expr
     e = prewalk(ee -> get(REPLACE_IN_PIPE, ee, ee), e)
-    e = transform_pipe_step(e, prev)
-    # how exactly this should work in broadcasting?
-    # eg @p [[1, 2], [3]] .|> map((_, length(__)), __)
-    e = replace_in_pipeexpr(e, Dict(PREV_PLACEHOLDER => :(error("__ placeholder not supported in broadcasted pipe steps"))))
-    @assert e.head == :call
-    e = Expr(:., e.args[1], Expr(:tuple, e.args[2:end]...))
-    e = :($(next) = $(e))
+    e = transform_pipe_step(e, prev_elt)
+    e = replace_in_pipeexpr(e, Dict(PREV_PLACEHOLDER => prev_elt))
+    e = :($(next) = ($prev_elt -> $(e)).($prev))
     return PipeStep(;
         expr_orig=be.expr,
         expr_transformed=e,
@@ -190,7 +187,8 @@ transform_pipe_step(e::Symbol, prev::Nothing) = e
 # symbol as latter pipeline steps: generally represents a function call
 transform_pipe_step(e::Symbol, prev::Symbol) = e == PREV_PLACEHOLDER ? prev : :($(e)($(prev)))
 function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing})
-    if !isnothing(prev) && e.head == :(.)
+    if !isnothing(prev) && is_qualified_name(e)
+        # qualified function name, as in Iterators.map
         return occursin_expr(==(PREV_PLACEHOLDER), e) ? e : :($(e)($(prev)))
     end
 
