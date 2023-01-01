@@ -37,3 +37,47 @@ function count_expr(needle::Function, haystack)
     end
     return cnt
 end
+
+is_lambda_function(e) = false
+is_lambda_function(e::Expr) = e.head == :(->)
+lambda_function_args(e::Expr) = if e.args[1] isa Symbol
+    (e.args[1],)
+else
+    @assert e.args[1].head == :tuple
+    Tuple(e.args[1].args)
+end
+lambda_function_body(e::Expr) = e.args[2]
+
+
+split_assignment(x) = nothing, x, []
+function split_assignment(expr::Expr)
+    if expr.head == :(=)
+        @assert length(expr.args) == 2  "Wrong assingment format"
+        return expr.args[1], expr.args[2], assigned_names(expr.args[1])
+    else
+        return nothing, expr, []
+    end
+end
+
+# single assingment: a = ...
+assigned_names(lhs::Symbol) = [lhs]
+# multiple assignment: a, b, c = ...
+assigned_names(lhs::Expr) = (
+    msg = "Wrong assingment format";
+    @assert lhs.head == :tuple  msg;
+    @assert all(a -> a isa Symbol, lhs.args)  msg;
+    lhs.args
+)
+
+# un-qualify name, e.g. :map -> :map, :(Base.map) -> :map
+unqualified_name(e::Symbol) = e
+unqualified_name(e::Expr) = let
+    if e.head == :.
+        # qualified function name, eg :(Base.map)
+        @assert length(e.args) == 2
+        return e.args[2].value
+    else
+        # any other expression: cannot "unqualify"
+        nothing
+    end
+end
