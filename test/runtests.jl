@@ -518,6 +518,14 @@ end
             (name="C", values=[5, 6]),
             (name="A B", values=[1, 2, 3, 4]),
         ]
+
+        @test (@p sum(1:5; init=100) do _
+            -_
+        end) == 85
+
+        @test (@p 1:5 |> sum(init=100) do _
+            -_
+        end) == 85
     end
 
     @testset "my funcs" begin
