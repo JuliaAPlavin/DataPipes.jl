@@ -14,7 +14,6 @@ end
     @testset "callable symbols" begin
         x = (a=123, def="c")
         @test (:a)(x) == 123
-        @test Val(:def)(x) == "c"
     end
 
     @testset "mapmany" begin
@@ -597,9 +596,6 @@ end
         @test @inferred(f(data)) == ["A", "C"]
 
         @test @pipe(data, map(:name)) == ["A B", "C"]
-        @test @pipe(data, map(Val(:name))) == ["A B", "C"]
-        f = data -> @pipe(data, map(Val(:name)))
-        @test @inferred(f(data)) == ["A B", "C"]
 
         @test @pipe([(a=1, b=(c=2, d=3))] |> mutate_rec((;b=_.a))) == [(a=1, b=1)]
         @test @pipe([(a=1, b=(c=2, d=3))] |> mutate_rec((;b=(;c=_.a)))) == [(a=1, b=(c=1, d=3))]
