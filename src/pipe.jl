@@ -211,7 +211,11 @@ add_prev_arg_if_needed(func_fullname, args, prev::Nothing) = args
 function add_prev_arg_if_needed(func_fullname, args, prev)
     # check if there are any prev placeholders in args already
     need_to_append = !any([func_fullname; args]) do arg
-        occursin_expr(ee -> is_pipecall(ee) ? StopWalk(ee) : ee == PREV_PLACEHOLDER, arg)
+        occursin_expr(arg) do ee
+            is_pipecall(ee) ? StopWalk(ee) :
+            is_kwexpr(ee) ? ContinueWalk(ee.args[2]) :
+            ee == PREV_PLACEHOLDER
+        end
     end
     if need_to_append
         name = string(unqualified_name(func_fullname))
@@ -261,39 +265,6 @@ function search_macro_flag(expr::Expr, macroname::Symbol)
     expr, found
 end
 
-split_assignment(x) = nothing, x, []
-function split_assignment(expr::Expr)
-    if expr.head == :(=)
-        @assert length(expr.args) == 2  "Wrong assingment format"
-        return expr.args[1], expr.args[2], assigned_names(expr.args[1])
-    else
-        return nothing, expr, []
-    end
-end
-
-# single assingment: a = ...
-assigned_names(lhs::Symbol) = [lhs]
-# multiple assignment: a, b, c = ...
-assigned_names(lhs::Expr) = (
-    msg = "Wrong assingment format";
-    @assert lhs.head == :tuple  msg;
-    @assert all(a -> a isa Symbol, lhs.args)  msg;
-    lhs.args
-)
-
-# un-qualify name, e.g. :map -> :map, :(Base.map) -> :map
-unqualified_name(e::Symbol) = e
-unqualified_name(e::Expr) = let
-    if e.head == :.
-        # qualified function name, eg :(Base.map)
-        @assert length(e.args) == 2
-        return e.args[2].value
-    else
-        # any other expression: cannot "unqualify"
-        nothing
-    end
-end
-
 transform_args(func_fullname, args) = map(enumerate(args)) do (i, arg)
     transform_arg(arg, func_fullname, i)
 end
@@ -325,7 +296,7 @@ end
 # this sets the minimum, additional underscores always get converted to more arguments
 func_nargs(func, argix) = func_nargs(Val(unqualified_name(func)), argix)
 func_nargs(func::Val, argix::Union{Int, Symbol, Nothing}) = func_nargs(func, Val(argix))
-func_nargs(func::Val, argix::Val) = 0  # so that _ is replaced everywhere
+func_nargs(func::Val, argix::Val) = 0
 func_nargs(func::Val{:mapmany}, argix::Val{2}) = 2
 func_nargs(func::Val{:product}, argix::Val{1}) = 2
 func_nargs(func::Union{Val{:innerjoin}, Val{:leftgroupjoin}}, argix::Val{3}) = 2
@@ -338,8 +309,6 @@ is_pipecall(e::Expr) = let
     return is_macro || is_implicitpipe
 end
 
-# if contains "_"-like placeholder: transform to function
-# otherwise keep as-is
 function func_or_body_to_func(e, nargs::Int)
     nargs = max(nargs, max_placeholder_n(e))
 
@@ -358,19 +327,10 @@ function func_or_body_to_func(e, nargs::Int)
     end
 end
 
-is_lambda_function(e) = false
-is_lambda_function(e::Expr) = e.head == :(->)
-lambda_function_args(e::Expr) = if e.args[1] isa Symbol
-    (e.args[1],)
-else
-    @assert e.args[1].head == :tuple
-    Tuple(e.args[1].args)
-end
-lambda_function_body(e::Expr) = e.args[2]
-
 function max_placeholder_n(e)
     nargs = 0
     prewalk(e) do ee
+        is_kwexpr(ee) && return ContinueWalk(ee.args[2])
         if is_pipecall(ee)
             nargs = max(nargs, max_placeholder_n_inner(ee))
             return StopWalk(ee)
@@ -386,6 +346,7 @@ function max_placeholder_n_inner(e)
     nargs = 0
     seen_pipe = false
     prewalk(e) do ee
+        is_kwexpr(ee) && return ContinueWalk(ee.args[2])
         if is_pipecall(ee)
             seen_pipe && return StopWalk(ee)
             seen_pipe = true
@@ -400,23 +361,26 @@ end
 
 " Replace function arg placeholders (like `_`) with corresponding symbols from `args`. Processes a single level of `@p` nesting. "
 replace_arg_placeholders(expr, args::Vector{Symbol}) = prewalk(expr) do ee
+    is_kwexpr(ee) && return Expr(:kw, StopWalk(ee.args[1]), replace_arg_placeholders(ee.args[2], args))
     ignore_underscore_within(ee) && return StopWalk(ee)
     is_pipecall(ee) && return StopWalk(replace_arg_placeholders_within_inner_pipe(ee, args))
     is_arg_placeholder(ee) ? args[arg_placeholder_n(ee)] : ee
 end
 replace_arg_placeholders_within_inner_pipe(expr, args::Vector{Symbol}) = let
     seen_pipe = false
-    prewalk(expr) do e
-        if is_pipecall(e)
-            seen_pipe && return StopWalk(e)
+    prewalk(expr) do ee
+        is_kwexpr(ee) && return Expr(:kw, StopWalk(ee.args[1]), ee.args[2])
+        if is_pipecall(ee)
+            seen_pipe && return StopWalk(ee)
             seen_pipe = true
         end
-        is_outer_arg_placeholder(e) ? args[outer_arg_placeholder_n(e)] : e
+        is_outer_arg_placeholder(ee) ? args[outer_arg_placeholder_n(ee)] : ee
     end
 end
 
 " Replace symbols in `expr` according to `syms_replacemap`. "
 replace_in_pipeexpr(expr, syms_replacemap::Dict) = prewalk(expr) do ee
+    is_kwexpr(ee) && return Expr(:kw, StopWalk(ee.args[1]), replace_in_pipeexpr(ee.args[2], syms_replacemap))
     is_pipecall(ee) && return StopWalk(ee)
     haskey(syms_replacemap, ee) && return syms_replacemap[ee]
     return ee
