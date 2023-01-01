@@ -8,7 +8,6 @@ macro S_str(str)
 end
 
 (name::Symbol)(x) = getproperty(x, name)
-(name::Val{S})(x) where {S} = getproperty(x, S)
 
 # likely can replace with a SAC.mapmany call after https://github.com/JuliaData/SplitApplyCombine.jl/pull/54
 mapmany(f_out::Function, f_in::Function, A) = reduce(vcat, map(a -> map(b -> f_in(a, b), f_out(a)), A))
