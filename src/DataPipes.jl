@@ -12,13 +12,14 @@ const var"@pf" = var"@pipefunc"
 const var"@f" = var"@pipefunc"
 
 
-# define placeholder characters:
-
-## result of the previous pipeline step
+" Result of the previous pipeline step "
 const PREV_PLACEHOLDER = :__
 
-## the only lambda argument name so that it's treated as implicit inner pipe
+" Name of the only lambda argument so that it's treated as an implicit inner pipe "
 const IMPLICIT_PIPE_ARG = PREV_PLACEHOLDER
+
+" Replacements to perform within pipes, before other transformations. "
+const REPLACE_IN_PIPE = Dict(S"@o" => S"@optic")
 
 ## function arguments
 is_arg_placeholder(x) = !isnothing(arg_placeholder_n(x))

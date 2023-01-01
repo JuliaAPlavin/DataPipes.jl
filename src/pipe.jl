@@ -120,6 +120,7 @@ function process_pipe_step(e, prev)
     e, keep_asis = search_macro_flag(e, S"@asis")
     e, no_add_prev = search_macro_flag(e, S"@_")
     if !keep_asis
+        e = prewalk(ee -> get(REPLACE_IN_PIPE, ee, ee), e)
         e = transform_pipe_step(e, no_add_prev ? nothing : prev)
         e = replace_in_pipeexpr(e, Dict(PREV_PLACEHOLDER => prev))
     end

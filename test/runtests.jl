@@ -627,6 +627,7 @@ end
         @test (@p data |> map(@optic(_.name))) == ["A B", "C"]
         @test (@p data |> map(@set(_.name = "newname")) |> map(_.name)) == ["newname", "newname"]
         @test (@p data |> map(set(_, @optic(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
+        @test (@p data |> map(set(_, @o(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
     end
 
     @testset "explicit arg" begin
