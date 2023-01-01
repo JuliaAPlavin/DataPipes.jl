@@ -157,41 +157,32 @@ transform_pipe_step(e::Symbol, prev::Nothing) = e
 transform_pipe_step(e::Symbol, prev::Symbol) = e == PREV_PLACEHOLDER ? prev : :($(e)($(prev)))
 function transform_pipe_step(e, prev::Union{Symbol, Nothing})
     fcall = dissect_function_call(e)
-    if !isnothing(fcall)
-        args = fcall.args
-        args = map(args) do arg
-            modify_argbody(arg) do arg
-                if is_lambda_function(arg) && occursin_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg))
-                    # pipe step function argument is a lambda function, with an argument or a part of an argument named IMPLICIT_PIPE_ARG
-                    @assert count_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg)) == 1
-                    block = lambda_function_body(arg)
-                    iarg = gensym("innerpipe_arg")
-                    steps = process_block(block, iarg)
-                    new_args = replace_in_pipeexpr(lambda_function_args(arg), Dict(:__ => iarg))
-                    expr = :( ($(new_args...),) -> $(map(final_expr, steps)...) )
-                    if lambda_function_args(arg) == (IMPLICIT_PIPE_ARG,)
-                        # not sure what replacement to do when multiple args
-                        expr = replace_arg_placeholders_within_inner_pipe(expr, [iarg])
-                    end
-                    expr
-                else
-                    arg
-                end
-            end
-        end
-        args = map(args) do arg
-            modify_argbody(arg) do arg
-                func_or_body_to_func(arg)
-            end
-        end
-        args = add_prev_arg_if_needed(fcall.funcname, args, prev)
-        args = sort(args; by=a -> a isa Expr && a.head == :parameters, rev=true)
-        :( $(fcall.funcname)($(args...)) )
-    else
-        # pipe step not a function call: keep it as-is
-        e
+    isnothing(fcall) && return e  # pipe step not a function call: keep it as-is
+    args = fcall.args
+    args = map(args) do arg
+        modify_argbody(func_or_body_to_func ∘ process_implicit_pipe, arg)
     end
+    args = add_prev_arg_if_needed(fcall.funcname, args, prev)
+    args = sort(args; by=a -> a isa Expr && a.head == :parameters, rev=true)
+    :( $(fcall.funcname)($(args...)) )
 end
+
+process_implicit_pipe(arg) = 
+    if is_implicitpipe(arg)
+        @assert count_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg)) == 1
+        block = lambda_function_body(arg)
+        iarg = gensym("innerpipe_arg")
+        steps = process_block(block, iarg)
+        new_args = replace_in_pipeexpr(lambda_function_args(arg), Dict(:__ => iarg))
+        expr = :( ($(new_args...),) -> $(map(final_expr, steps)...) )
+        if lambda_function_args(arg) == (IMPLICIT_PIPE_ARG,)
+            # not sure what replacement to do when multiple args
+            expr = replace_arg_placeholders_within_inner_pipe(expr, [iarg])
+        end
+        expr
+    else
+        arg
+    end
 
 dissect_function_call(e) = nothing
 dissect_function_call(e::Symbol) = @assert false
@@ -274,12 +265,16 @@ function search_macro_flag(expr::Expr, macroname::Symbol)
 end
 
 
-is_pipecall(e) = false
-is_pipecall(e::Expr) = let
-    is_macro = e.head == :macrocall && e.args[1] ∈ (S"@pipe", S"@p", S"@pipefunc", S"@f")
-    is_implicitpipe = is_lambda_function(e) && lambda_function_args(e) == (IMPLICIT_PIPE_ARG,)
-    return is_macro || is_implicitpipe
-end
+is_pipecall(e) = is_macropipe(e) || is_implicitpipe(e)
+
+is_macropipe(e) = false
+is_macropipe(e::Expr) = e.head == :macrocall && e.args[1] ∈ (S"@pipe", S"@p", S"@pipefunc", S"@f")
+
+# implicit pipe: function argument that is a lambda function,
+# with an argument or a part of an argument named IMPLICIT_PIPE_ARG
+is_implicitpipe(e) = false
+is_implicitpipe(e::Expr) = is_lambda_function(e) && occursin_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(e))
+
 
 function func_or_body_to_func(e)
     nargs = max_placeholder_n(e)
