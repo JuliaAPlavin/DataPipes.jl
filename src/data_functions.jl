@@ -11,7 +11,7 @@ end
 
 
 # mapmany methods
-function mapmany!(out, f::Function, A)
+function mapmany!(f::Function, out, A)
     empty!(out)
     for a in A
         append!(out, f(a))
@@ -22,7 +22,7 @@ end
 # likely can replace with a SAC.mapmany call after https://github.com/JuliaData/SplitApplyCombine.jl/pull/54
 mapmany(f_out::Function, f_in::Function, A) = reduce(vcat, map(a -> map(b -> f_in(a, b), f_out(a)), A))
 
-function mapmany!(out, f_out::Function, f_in::Function, A)
+function mapmany!(f_out::Function, f_in::Function, out, A)
     empty!(out)
     for a in A
         for b in f_out(a)
