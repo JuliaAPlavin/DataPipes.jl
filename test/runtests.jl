@@ -191,7 +191,7 @@ end
         @test (@pipe map(_.name, data)) == ["A B", "C"]
 
         @test_broken @p(1:4 |> Base.identity) == 1:4
-        @test_broken @p("abc" |> Base.identity) == "abc"
+        @test @p("abc" |> map(_ + 1)) == "bcd"
 
         @test let
             f(x) = x^2
@@ -252,11 +252,11 @@ end
         @test (@p begin
             "abc"
         end) == "abc"
-        @test_broken (@p begin
+        @test (@p begin
             "abc"
             uppercase()
         end) == "ABC"
-        @test_broken (@p begin
+        @test (@p begin
             "abc"
             uppercase(__)
         end) == "ABC"
