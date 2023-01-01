@@ -18,14 +18,21 @@ function pipe_macro(block; debug=false)
     all_assigns = mapmany(assigns, steps)
     if debug
         all_res_args = filtermap(res_arg_if_present, steps)
-        res_args_inner = gensym("res_args")
+        exprs = map(steps) do s
+            e = final_expr(s)
+            res = res_arg_if_present(s)
+            isnothing(res) ? e : :(
+                $e;
+                push!(_pipe, $res)
+            )
+        end
         quote
-            global ($([all_assigns..., :_pipe, res_arg]...),) = let ($(all_assigns...))
-                $(map(final_expr, steps)...)
-                $res_args_inner = [$(all_res_args...),]
-                ($([all_assigns..., res_args_inner, res_arg]...),)
+            global ($([all_assigns..., res_arg]...),)
+            global _pipe = []
+            let $(all_res_args...)
+                $(exprs...)
+                $(res_arg)
             end
-            $(res_arg)
         end |> esc
     else
         quote

@@ -823,7 +823,7 @@ end
         end) == [(2, 4), (4, 6), (6, 8), (8, 10)]
         # @test doesn't populate variables outside, so we'll run the same pipes again
 
-        let
+        @testset "simple" begin
             @pDEBUG begin
                 1:5
                 map(_ * 2)
@@ -833,7 +833,7 @@ end
             @test res_a == [4, 6, 8, 10]
         end
 
-        let
+        @testset "with @aside" begin
             @pDEBUG begin
                 1:5
                 map(_ * 2)
@@ -844,7 +844,19 @@ end
             @test res_a == [4, 6, 8, 10]
         end
 
-        let
+        @testset "errors" begin
+            @test_throws ArgumentError @pDEBUG begin
+                1:5
+                map(_ * 3)
+                @aside res_a = filter(_ > 3)
+                map((_1, _2), __, res_a)
+                only()
+            end
+            @test _pipe == [1:5, 3:3:15, [6, 9, 12, 15], [(3, 6), (6, 9), (9, 12), (12, 15)]]
+            @test res_a == [6, 9, 12, 15]
+        end
+
+        @testset "outside of func" begin
             f() = @pDEBUG begin
                 10:10:50
                 map(_ * 2)
