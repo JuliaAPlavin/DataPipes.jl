@@ -40,10 +40,9 @@ is_kwexpr(e) = false
 is_kwexpr(e::Expr) =
     e.head == :kw ||  # semicolon kwargs such as (; a=1)
     e.head == :(=) && e.args[1] isa Symbol  # no-semicolon kwargs such as (a=1,)
-function reassemble_kwexpr(e::Expr, args...)
+function kwexpr_skipfirst(e::Expr)
     @assert is_kwexpr(e)
-    @assert length(args) == length(e.args)
-    Expr(e.head, args...)
+    Expr(e.head, StopWalk(e.args[1]), e.args[2:end]...)
 end
 
 is_lambda_function(e) = false
@@ -60,18 +59,18 @@ lambda_function_body(e::Expr) = e.args[2]
 split_assignment(x) = nothing, x, []
 function split_assignment(expr::Expr)
     if expr.head == :(=)
-        @assert length(expr.args) == 2  "Wrong assingment format"
+        @assert length(expr.args) == 2  "Wrong assignment format"
         return expr.args[1], expr.args[2], assigned_names(expr.args[1])
     else
         return nothing, expr, []
     end
 end
 
-# single assingment: a = ...
+# single assignment: a = ...
 assigned_names(lhs::Symbol) = [lhs]
 # multiple assignment: a, b, c = ...
 assigned_names(lhs::Expr) = (
-    msg = "Wrong assingment format";
+    msg = "Wrong assignment format";
     @assert lhs.head == :tuple  msg;
     @assert all(a -> a isa Symbol, lhs.args)  msg;
     lhs.args
