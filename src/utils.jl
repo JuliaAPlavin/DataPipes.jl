@@ -80,6 +80,7 @@ assigned_names(lhs::Expr) = (
 is_qualified_name(e::Expr) = e.head == :(.) && length(e.args) == 2 && e.args[2] isa QuoteNode
 
 # un-qualify name, e.g. :map -> :map, :(Base.map) -> :map
+unqualified_name(e) = Symbol(e)  # eg functions themselves
 unqualified_name(e::Symbol) = e
 unqualified_name(e::Expr) = let
     if e.head == :.

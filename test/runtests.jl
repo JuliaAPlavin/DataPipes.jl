@@ -488,7 +488,10 @@ end
         @test (@p data |> map(x -> set(x, @o(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
 
         @test (@p data |> @modify(x -> x + 1, (__ |> Elements()).values |> Elements())) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
+        @test (@p data |> @modify(_ + 1, (__ |> Elements()).values |> Elements())) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
         @test (@p data |> @modify((__ |> Elements()).values |> Elements()) do x x + 1 end) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
+        @test (@p @modify((data |> Elements()).values |> Elements()) do x x + 1 end) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
+        @macroexpand (@p data |> @modify((data |> Elements()).values |> Elements()) do x x + 1 end)  # should just expand - code doesn't work, but even expansion threw error before
     end
 
     @testset "PyFormattedStrings.jl" begin
