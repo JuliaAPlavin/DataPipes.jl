@@ -473,6 +473,10 @@ macro mouter(expr)
 end
 end
 
+macro my_str(expr)
+    return expr
+end
+
 @testset "macro interop" begin
     @testset "Accessors.jl" begin
         @test (@p data |> map(@optic(_.name))) == ["A B", "C"]
@@ -505,6 +509,7 @@ end
     @testset "two-level macro" begin
         @test (@p MyMacroMod.@mouter 1) == 20
         @test (@p MyMacroMod.MyMacroMod.@mouter 1) == 20
+        @test (@p 1:3 |> map(@optic _ * parse(Int, my"2"))) == 2:2:6
     end
 end
 

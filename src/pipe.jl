@@ -235,7 +235,7 @@ transform_pipe_step(e::Symbol, prev::Symbol) = e == PREV_PLACEHOLDER ? prev : :(
 function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing, NoPrevArg})
     if !isnothing(prev) && (
             is_qualified_name(e) || # qualified function name, as in Iterators.map
-            Base.isexpr(e, :curly))  # type constructor, as in SVector{3}
+            Meta.isexpr(e, :curly))  # type constructor, as in SVector{3}
         e = occursin_expr(==(PREV_PLACEHOLDER), e) ? e : :($(e)($(prev)))
         return replace_in_pipeexpr(e, Dict(PREV_PLACEHOLDER => prev))
     end
