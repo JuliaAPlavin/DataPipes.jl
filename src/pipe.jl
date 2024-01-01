@@ -1,5 +1,5 @@
 macro pipe(block)
-    if Base.isexpr(block, :tuple)
+    if Meta.isexpr(block, :tuple)
         block, rest = block.args[1], block.args[2:end]
         :(($(pipe_macro(block; __module__)), $(esc.(rest)...))...)
     else
@@ -22,16 +22,16 @@ struct NoPrevArg end
 Base.isnothing(::NoPrevArg) = true
 
 function macroname(e::Expr)
-    @assert Base.isexpr(e, :macrocall)
+    @assert Meta.isexpr(e, :macrocall)
     e.args[1] isa Symbol && return e.args[1]
     e.args[1] isa GlobalRef && return e.args[1].name
     error("Unsupported macro spec: $(e.args[1])")
 end
 
 function ismacrocall_excl(excl_names, e)
-    if Base.isexpr(e, :macrocall)
+    if Meta.isexpr(e, :macrocall)
         return macroname(e) ∉ excl_names
-    elseif Base.isexpr(e, :do) && Base.isexpr(e.args[1], :macrocall)
+    elseif Meta.isexpr(e, :do) && Meta.isexpr(e.args[1], :macrocall)
         return macroname(e.args[1]) ∉ excl_names
     else
         return false
@@ -270,7 +270,7 @@ end
 function modify_pipecall_argument(f, e)
     if is_macropipe(e)
         mainarg = e.args[end]
-        if Base.isexpr(mainarg, :tuple)
+        if Meta.isexpr(mainarg, :tuple)
             block, rest = mainarg.args[1], mainarg.args[2:end]
             @assert !(block isa LineNumberNode)
             return Expr(:macrocall, e.args[1:end-1]..., Expr(:tuple, StopWalk(f(block)), rest...))
