@@ -1,6 +1,7 @@
 using DataPipes
 using Test
 using Accessors
+using PyFormattedStrings
 
 
 module MyModule
@@ -261,6 +262,13 @@ end
         data
         map(@pipe(_ꜛ.name, collect, map(@pipe(_ꜛ, string, lowercase, (__)^2)), join(__, "")))
     end) == ["aa  bb", "cc"]
+
+    @test @p(1:3 |> (x=length(__), y=@p __ꜛ |> map(_ + 1))) == (x = 3, y = [2, 3, 4])
+    @test @p(1:3 |> tuple(@p __ꜛ |> map(_ + 1), length(__))) == ([2, 3, 4], 3)
+    @test @p(1:3 |> tuple(@p __ꜛ |> map(_ + 1), @p map(_ + 2, __ꜛ))) == ([2, 3, 4], [3, 4, 5])
+    # https://github.com/MasonProtter/SimpleUnderscores.jl/issues/2:
+    @test_broken (@eval(@p(1:3 |> (x=@p __ꜛ |> map(_ + 1), y=@p map(_ + 2, __ꜛ)))); true)
+    # @test @p(1:3 |> (x=@p__ map(_ + 1)), y=@p__ map(_ + 2))  # is it needed, or more confusing?
 end
 
 @testset "pipe function" begin
@@ -268,6 +276,9 @@ end
     @test data |> @f(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
     @test @pipe(data) |> @f(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
     @test @pipe(data, map(_.name)) |> @f(map(_^2)) == ["A BA B", "CC"]
+
+    @test (1:3 |> @p map(_+1, __)) == [2, 3, 4]
+    @test (1:3 |> @p map(_+1, __) |> sum) == 9
 end
 
 @testset "nested pipes" begin
@@ -448,19 +459,26 @@ end
     @test (@p 1:5 |> Iterators.product(__, [1, 2]) |> collect) == [(1, 1) (1, 2); (2, 1) (2, 2); (3, 1) (3, 2); (4, 1) (4, 2); (5, 1) (5, 2)]
 end
 
-@testset "Accessors.jl" begin
-    @test (@p data |> map(@optic(_.name))) == ["A B", "C"]
-    @test (@p data |> map(@set(_.name = "newname")) |> map(_.name)) == ["newname", "newname"]
-    @test_broken (@p data |> map(@set(_ |> _.name = "newname")) |> map(_.name)) == ["newname", "newname"]
-    @test (@p data |> map(x -> @set(x |> _.name = "newname")) |> map(_.name)) == ["newname", "newname"]
-    @test (@p data |> map(x -> @set(x |> _.name = length(__)), __) |> map(_.name)) == [2, 2]
+@testset "macro interop" begin
+    @testset "Accessors.jl" begin
+        @test (@p data |> map(@optic(_.name))) == ["A B", "C"]
+        @test (@p data |> map(@set(_.name = "newname")) |> map(_.name)) == ["newname", "newname"]
+        @test (@p data |> map(@set(_ |> _.name = "newname")) |> map(_.name)) == ["newname", "newname"]
+        @test (@p data |> map(@set(_ |> _.name = @p _ꜛ |> length(__) |> string)) |> map(_.name)) == ["2", "2"]
+        @test (@p data |> map(x -> @set(x |> _.name = "newname")) |> map(_.name)) == ["newname", "newname"]
+        @test (@p data |> map(x -> @set(x |> _.name = length(__)), __) |> map(_.name)) == [2, 2]
 
-    @test (@p data |> map(set(_, @optic(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
-    @test (@p data |> map(set(_, @o(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
-    @test (@p data |> map(x -> set(x, @o(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
+        @test (@p data |> map(set(_, @optic(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
+        @test (@p data |> map(set(_, @o(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
+        @test (@p data |> map(x -> set(x, @o(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
 
-    @test (@p data |> @modify(x -> x + 1, (__ |> Elements()).values |> Elements())) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
-    @test (@p data |> @modify((__ |> Elements()).values |> Elements()) do x x + 1 end) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
+        @test (@p data |> @modify(x -> x + 1, (__ |> Elements()).values |> Elements())) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
+        @test (@p data |> @modify((__ |> Elements()).values |> Elements()) do x x + 1 end) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
+    end
+
+    @testset "PyFormattedStrings.jl" begin
+        @test (@p 1:5 |> map(f"{_:03d}")) == ["001", "002", "003", "004", "005"]
+    end
 end
 
 @testset "explicit arg" begin
