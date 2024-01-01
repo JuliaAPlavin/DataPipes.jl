@@ -370,7 +370,7 @@ end
 
 " Replace function arg placeholders (like `_`) with corresponding symbols from `args`. Processes a single level of `@p` nesting. "
 replace_arg_placeholders(expr, args::Vector{Symbol}) = prewalk(expr) do ee
-    is_kwexpr(ee) && return reassemble_kwexpr(ee, StopWalk(ee.args[1]), replace_arg_placeholders(ee.args[2], args))
+    is_kwexpr(ee) && return kwexpr_skipfirst(ee)
     ignore_underscore_within(ee) && return StopWalk(ee)
     is_pipecall(ee) && return StopWalk(replace_arg_placeholders_within_inner_pipe(ee, args))
     is_arg_placeholder(ee) ? args[arg_placeholder_n(ee)] : ee
@@ -378,7 +378,7 @@ end
 replace_arg_placeholders_within_inner_pipe(expr, args::Vector{Symbol}) = let
     seen_pipe = false
     prewalk(expr) do ee
-        is_kwexpr(ee) && return reassemble_kwexpr(ee, StopWalk(ee.args[1]), ee.args[2])
+        is_kwexpr(ee) && return kwexpr_skipfirst(ee)
         if is_pipecall(ee)
             seen_pipe && return StopWalk(ee)
             seen_pipe = true
@@ -389,7 +389,7 @@ end
 
 " Replace symbols in `expr` according to `syms_replacemap`. "
 replace_in_pipeexpr(expr, syms_replacemap::Dict) = prewalk(expr) do ee
-    is_kwexpr(ee) && return reassemble_kwexpr(ee, StopWalk(ee.args[1]), replace_in_pipeexpr(ee.args[2], syms_replacemap))
+    is_kwexpr(ee) && return kwexpr_skipfirst(ee)
     is_pipecall(ee) && return StopWalk(ee)
     haskey(syms_replacemap, ee) && return syms_replacemap[ee]
     return ee

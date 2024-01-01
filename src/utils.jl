@@ -40,10 +40,9 @@ is_kwexpr(e) = false
 is_kwexpr(e::Expr) =
     e.head == :kw ||  # semicolon kwargs such as (; a=1)
     e.head == :(=) && e.args[1] isa Symbol  # no-semicolon kwargs such as (a=1,)
-function reassemble_kwexpr(e::Expr, args...)
+function kwexpr_skipfirst(e::Expr)
     @assert is_kwexpr(e)
-    @assert length(args) == length(e.args)
-    Expr(e.head, args...)
+    Expr(e.head, StopWalk(e.args[1]), e.args[2:end]...)
 end
 
 is_lambda_function(e) = false
