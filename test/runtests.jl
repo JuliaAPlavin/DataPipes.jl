@@ -744,6 +744,14 @@ end
     @test (@p 1:5 |> identity((_=__, a=123))) == (_=1:5, a=123)
 end
 
+@testset "splatted" begin
+    @test_broken (@p (1, 2)) == (1, 2)
+    @test_broken (@p 1:5 |> map(_*2), 1:5) == ([2, 4, 6, 8, 10], 1:5)
+    @test tuple(@p 1:5 |> map(_*2), @p 1:5) == ([2, 4, 6, 8, 10], 1:5)
+    @test map(=>, @p 1:5 |> map(_*2), 1:5) == [2=>1, 4=>2, 6=>3, 8=>4, 10=>5]
+    @test map(@p =>, @p 1:5 |> map(_*2), @p 1:5 |> map(_+1)) == [2=>2, 4=>3, 6=>4, 8=>5, 10=>6]
+end
+
 @testset "debug mode" begin
     @test (@pDEBUG begin
         1:5
