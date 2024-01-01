@@ -269,6 +269,9 @@ end
     # https://github.com/MasonProtter/SimpleUnderscores.jl/issues/2:
     @test_broken (@eval(@p(1:3 |> (x=@p __ꜛ |> map(_ + 1), y=@p map(_ + 2, __ꜛ)))); true)
     # @test @p(1:3 |> (x=@p__ map(_ + 1)), y=@p__ map(_ + 2))  # is it needed, or more confusing?
+
+    @test (@p 1 |> Complex) === 1 + 0im
+    @test (@p 1 |> Complex{Int}) === 1 + 0im
 end
 
 @testset "pipe function" begin
