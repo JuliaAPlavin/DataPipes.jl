@@ -53,4 +53,8 @@ import ..@pipe, ..@pipefunc
 export @pipe, @pipefunc
 end
 
+
+# precompile:
+@p 1:2 |> map(_ + 1)
+
 end
