@@ -13,7 +13,7 @@ macro pipefunc(block) pipefunc_macro(block) end
 macro pipefunc(exprs...) pipefunc_macro(exprs) end
 
 function pipefunc_macro(block)
-    arg = gensym("pipefuncarg")
+    arg = gensym(:funcarg)
     blocktype, steps = process_block(block, arg)
     @remove_linenums! :( $(arg) -> $(map(final_expr, steps)...) ) |> esc
 end
@@ -146,7 +146,7 @@ function process_pipe_step(e, prev)
     e, exports = process_exports(e)
     e, is_aside = search_macro_flag(e, S"@aside")
     assign_lhs, e, assigns = split_assignment(e)
-    next = gensym("res")
+    next = gensym(:__)
     e, keep_asis = search_macro_flag(e, S"@asis")
     e, no_add_prev = search_macro_flag(e, S"@_")
     if !keep_asis
@@ -169,8 +169,8 @@ function process_pipe_step(e, prev)
 end
 
 function process_pipe_step(be::BroadcastedExpr, prev)
-    prev_elt = gensym("prev_elt")
-    next = gensym("res")
+    prev_elt = gensym(:_bcast)
+    next = gensym(:__)
     e = be.expr
     e = prewalk(ee -> get(REPLACE_IN_PIPE, ee, ee), e)
     e = transform_pipe_step(e, prev_elt)
@@ -248,7 +248,7 @@ process_implicit_pipe(arg) =
     if is_implicitpipe(arg)
         @assert count_expr(==(IMPLICIT_PIPE_ARG), lambda_function_args(arg)) == 1
         block = lambda_function_body(arg)
-        iarg = gensym("innerpipe_arg")
+        iarg = gensym(:__in)
         blocktype, steps = process_block(block, iarg)
         new_args = replace_in_pipeexpr(lambda_function_args(arg), Dict(:__ => iarg))
         expr = @remove_linenums! :( ($(new_args...),) -> $(map(final_expr, steps)...) )
@@ -361,7 +361,7 @@ function func_or_body_to_func(e)
     end
 
     nargs = max_placeholder_n(e)
-    args = [gensym("x_$i") for i in 1:nargs]
+    args = [gensym(i == 1 ? :_ : "_$i") for i in 1:nargs]
     e_replaced = replace_arg_placeholders(e, args)
     if e_replaced != e
         if is_lambda_function(e_replaced)
