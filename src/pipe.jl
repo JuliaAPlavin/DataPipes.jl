@@ -229,7 +229,7 @@ end
 # anything else, e.g. plain numbers or strings: keep as-is
 transform_pipe_step(e, prev) = e
 # symbol as the first pipeline step: keep as-is
-transform_pipe_step(e::Symbol, prev::Union{Nothing,NoPrevArg}) = e
+transform_pipe_step(e::Symbol, prev::Union{Nothing,NoPrevArg}) = e == PREV_PLACEHOLDER ? prev : e
 # symbol as latter pipeline steps: generally represents a function call
 transform_pipe_step(e::Symbol, prev::Symbol) = e == PREV_PLACEHOLDER ? prev : :($(e)($(prev)))
 function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing, NoPrevArg})
