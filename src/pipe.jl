@@ -13,6 +13,7 @@ end
 
 function pipe_macro(block; debug=false)
     blocktype, steps = process_block(block, nothing)
+    isempty(steps) && return nothing
     res_arg = filtermap(res_arg_if_propagated, steps) |> last
     all_exports = mapreduce(exports, vcat, steps)
     all_assigns = mapreduce(assigns, vcat, steps)
@@ -98,7 +99,7 @@ else
     :let, [block]
 end
 
-expand_docstrings(exprs) = mapreduce(vcat, exprs) do e
+expand_docstrings(exprs) = mapreduce(vcat, exprs; init=[]) do e
     if e isa Expr && e.head == :macrocall && e.args[1] == GlobalRef(Core, S"@doc")
         @assert e.args[2] isa LineNumberNode
         @assert e.args[3] isa String
