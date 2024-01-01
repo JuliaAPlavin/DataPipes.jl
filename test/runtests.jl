@@ -282,6 +282,7 @@ end
 
     @test (1:3 |> @p map(_+1, __)) == [2, 3, 4]
     @test (1:3 |> @p map(_+1, __) |> sum) == 9
+    @test (1:3 |> @p __ |> sum(_+1)) == 9
 end
 
 @testset "nested pipes" begin
