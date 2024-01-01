@@ -15,6 +15,12 @@ data = [
 data_original = copy(data)
 
 @testset "simple" begin
+    @test @p() === nothing
+    @test (@p let
+    end) === nothing
+    @test (@p begin
+    end) === nothing
+
     @test @pipe(123) == 123
     @test @pipe(data) == data
 
