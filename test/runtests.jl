@@ -1,6 +1,7 @@
 using DataPipes
 using Test
 using Accessors
+using PyFormattedStrings
 
 
 module MyModule
@@ -458,19 +459,26 @@ end
     @test (@p 1:5 |> Iterators.product(__, [1, 2]) |> collect) == [(1, 1) (1, 2); (2, 1) (2, 2); (3, 1) (3, 2); (4, 1) (4, 2); (5, 1) (5, 2)]
 end
 
-@testset "Accessors.jl" begin
-    @test (@p data |> map(@optic(_.name))) == ["A B", "C"]
-    @test (@p data |> map(@set(_.name = "newname")) |> map(_.name)) == ["newname", "newname"]
-    @test_broken (@p data |> map(@set(_ |> _.name = "newname")) |> map(_.name)) == ["newname", "newname"]
-    @test (@p data |> map(x -> @set(x |> _.name = "newname")) |> map(_.name)) == ["newname", "newname"]
-    @test (@p data |> map(x -> @set(x |> _.name = length(__)), __) |> map(_.name)) == [2, 2]
+@testset "macro interop" begin
+    @testset "Accessors.jl" begin
+        @test (@p data |> map(@optic(_.name))) == ["A B", "C"]
+        @test (@p data |> map(@set(_.name = "newname")) |> map(_.name)) == ["newname", "newname"]
+        @test (@p data |> map(@set(_ |> _.name = "newname")) |> map(_.name)) == ["newname", "newname"]
+        @test (@p data |> map(@set(_ |> _.name = @p _ꜛ |> length(__) |> string)) |> map(_.name)) == ["2", "2"]
+        @test (@p data |> map(x -> @set(x |> _.name = "newname")) |> map(_.name)) == ["newname", "newname"]
+        @test (@p data |> map(x -> @set(x |> _.name = length(__)), __) |> map(_.name)) == [2, 2]
 
-    @test (@p data |> map(set(_, @optic(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
-    @test (@p data |> map(set(_, @o(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
-    @test (@p data |> map(x -> set(x, @o(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
+        @test (@p data |> map(set(_, @optic(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
+        @test (@p data |> map(set(_, @o(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
+        @test (@p data |> map(x -> set(x, @o(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
 
-    @test (@p data |> @modify(x -> x + 1, (__ |> Elements()).values |> Elements())) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
-    @test (@p data |> @modify((__ |> Elements()).values |> Elements()) do x x + 1 end) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
+        @test (@p data |> @modify(x -> x + 1, (__ |> Elements()).values |> Elements())) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
+        @test (@p data |> @modify((__ |> Elements()).values |> Elements()) do x x + 1 end) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
+    end
+
+    @testset "PyFormattedStrings.jl" begin
+        @test (@p 1:5 |> map(f"{_:03d}")) == ["001", "002", "003", "004", "005"]
+    end
 end
 
 @testset "explicit arg" begin

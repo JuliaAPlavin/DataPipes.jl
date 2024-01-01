@@ -1,18 +1,18 @@
 macro pipe(block)
     if Base.isexpr(block, :tuple)
         block, rest = block.args[1], block.args[2:end]
-        :(($(pipe_macro(block)), $(esc.(rest)...))...)
+        :(($(pipe_macro(block; __module__)), $(esc.(rest)...))...)
     else
-        pipe_macro(block)
+        pipe_macro(block; __module__)
     end
 end
-macro pipe(exprs...) pipe_macro(exprs) end
-macro pipeDEBUG(block) pipe_macro(block; debug=true) end
-macro pipeDEBUG(exprs...) pipe_macro(exprs; debug=true) end
-macro pipefunc(block) pipefunc_macro(block) end
-macro pipefunc(exprs...) pipefunc_macro(exprs) end
+macro pipe(exprs...) pipe_macro(exprs; __module__) end
+macro pipeDEBUG(block) pipe_macro(block; debug=true, __module__) end
+macro pipeDEBUG(exprs...) pipe_macro(exprs; debug=true, __module__) end
+macro pipefunc(block) pipefunc_macro(block; __module__) end
+macro pipefunc(exprs...) pipefunc_macro(exprs; __module__) end
 
-function pipefunc_macro(block)
+function pipefunc_macro(block; __module__)
     arg = gensym(:funcarg)
     blocktype, steps = process_block(block, arg)
     @remove_linenums! :( $(arg) -> $(map(final_expr, steps)...) ) |> esc
@@ -21,7 +21,32 @@ end
 struct NoPrevArg end
 Base.isnothing(::NoPrevArg) = true
 
-function pipe_macro(block; debug=false)
+function macroname(e::Expr)
+    @assert Base.isexpr(e, :macrocall)
+    e.args[1] isa Symbol && return e.args[1]
+    e.args[1] isa GlobalRef && return e.args[1].name
+    error("Unsupported macro spec: $(e.args[1])")
+end
+
+function ismacrocall_excl(excl_names, e)
+    if Base.isexpr(e, :macrocall)
+        return macroname(e) ∉ excl_names
+    elseif Base.isexpr(e, :do) && Base.isexpr(e.args[1], :macrocall)
+        return macroname(e.args[1]) ∉ excl_names
+    else
+        return false
+    end
+end
+
+function pipe_macro(block; debug=false, __module__)
+    block = prewalk(ee -> get(REPLACE_IN_PIPE, ee, ee), block)
+    block = prewalk(block) do x
+        if ismacrocall_excl(MACROS_NOEXPAND, x)
+            macroexpand(__module__, x; recursive=false)
+        else
+            x
+        end
+    end
     blocktype, steps = process_block(block, NoPrevArg())
     isempty(steps) && return nothing
     res_arg = filtermap(res_arg_if_propagated, steps) |> last
@@ -164,7 +189,6 @@ function process_pipe_step(e, prev)
     e, keep_asis = search_macro_flag(e, S"@asis")
     e, no_add_prev = search_macro_flag(e, S"@_")
     if !keep_asis
-        e = prewalk(ee -> get(REPLACE_IN_PIPE, ee, ee), e)
         e = transform_pipe_step(e, no_add_prev ? nothing : prev)
     end
     e = if isnothing(assign_lhs)
@@ -425,7 +449,6 @@ end
 " Replace function arg placeholders (like `_`) with corresponding symbols from `args`. Processes a single level of `@p` nesting. "
 replace_arg_placeholders(expr, args::Vector{Symbol}) = prewalk(expr) do ee
     is_kwexpr(ee) && return kwexpr_skipfirst(ee)
-    ignore_underscore_within(ee) && return StopWalk(ee)
     is_pipecall(ee) && return StopWalk(replace_arg_placeholders_within_inner_pipe(ee, args))
     is_arg_placeholder(ee) ? args[arg_placeholder_n(ee)] : ee
 end

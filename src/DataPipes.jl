@@ -21,6 +21,13 @@ const IMPLICIT_PIPE_ARG = PREV_PLACEHOLDER
 " Replacements to perform within pipes, before other transformations. "
 const REPLACE_IN_PIPE = Dict(S"@o" => S"@optic")
 
+" Most macros are expanded before the pipe is processed. This is the list of exceptions. "
+const MACROS_NOEXPAND = (
+    S"@p", S"@pipe", S"@f", S"@pf", S"@pipefunc",
+    S"@aside", S"@asis", S"@_", S"@export",
+    S"@doc",
+)
+
 ## function arguments
 is_arg_placeholder(x) = !isnothing(arg_placeholder_n(x))
 arg_placeholder_n(x) = nothing
@@ -40,9 +47,6 @@ outer_arg_placeholder_n(x::Symbol) = let
     return nothing
 end
 
-## expressions where DataPipes won't replace `_` placeholders with lambda argument
-ignore_underscore_within(e) = false
-ignore_underscore_within(e::Expr) = e.head == :macrocall && e.args[1] ∈ (S"@optic",)
 
 module NoAbbr
 import ..@pipe, ..@pipefunc
