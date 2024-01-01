@@ -60,18 +60,18 @@ lambda_function_body(e::Expr) = e.args[2]
 split_assignment(x) = nothing, x, []
 function split_assignment(expr::Expr)
     if expr.head == :(=)
-        @assert length(expr.args) == 2  "Wrong assingment format"
+        @assert length(expr.args) == 2  "Wrong assignment format"
         return expr.args[1], expr.args[2], assigned_names(expr.args[1])
     else
         return nothing, expr, []
     end
 end
 
-# single assingment: a = ...
+# single assignment: a = ...
 assigned_names(lhs::Symbol) = [lhs]
 # multiple assignment: a, b, c = ...
 assigned_names(lhs::Expr) = (
-    msg = "Wrong assingment format";
+    msg = "Wrong assignment format";
     @assert lhs.head == :tuple  msg;
     @assert all(a -> a isa Symbol, lhs.args)  msg;
     lhs.args
