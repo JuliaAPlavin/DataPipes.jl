@@ -261,6 +261,13 @@ end
         data
         map(@pipe(_ꜛ.name, collect, map(@pipe(_ꜛ, string, lowercase, (__)^2)), join(__, "")))
     end) == ["aa  bb", "cc"]
+
+    @test @p(1:3 |> (x=length(__), y=@p __ꜛ |> map(_ + 1))) == (x = 3, y = [2, 3, 4])
+    @test @p(1:3 |> tuple(@p __ꜛ |> map(_ + 1), length(__))) == ([2, 3, 4], 3)
+    @test @p(1:3 |> tuple(@p __ꜛ |> map(_ + 1), @p map(_ + 2, __ꜛ))) == ([2, 3, 4], [3, 4, 5])
+    # https://github.com/MasonProtter/SimpleUnderscores.jl/issues/2:
+    @test_broken (@eval(@p(1:3 |> (x=@p __ꜛ |> map(_ + 1), y=@p map(_ + 2, __ꜛ)))); true)
+    # @test @p(1:3 |> (x=@p__ map(_ + 1)), y=@p__ map(_ + 2))  # is it needed, or more confusing?
 end
 
 @testset "pipe function" begin

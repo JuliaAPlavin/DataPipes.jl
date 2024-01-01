@@ -40,6 +40,7 @@ is_kwexpr(e) = false
 is_kwexpr(e::Expr) =
     e.head == :kw ||  # semicolon kwargs such as (; a=1)
     e.head == :(=) && e.args[1] isa Symbol  # no-semicolon kwargs such as (a=1,)
+" Wrap first argument of a kwexpr into a StopWalk so that it's not processed in the walk afterwards. "
 function kwexpr_skipfirst(e::Expr)
     @assert is_kwexpr(e)
     Expr(e.head, StopWalk(e.args[1]), e.args[2:end]...)

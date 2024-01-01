@@ -152,7 +152,6 @@ function process_pipe_step(e, prev)
     if !keep_asis
         e = prewalk(ee -> get(REPLACE_IN_PIPE, ee, ee), e)
         e = transform_pipe_step(e, no_add_prev ? nothing : prev)
-        e = replace_in_pipeexpr(e, Dict(PREV_PLACEHOLDER => prev))
     end
     e = if isnothing(assign_lhs)
         :($(next) = $(e))
@@ -197,8 +196,13 @@ transform_pipe_step(e::Symbol, prev::Symbol) = e == PREV_PLACEHOLDER ? prev : :(
 function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing})
     if !isnothing(prev) && is_qualified_name(e)
         # qualified function name, as in Iterators.map
-        return occursin_expr(==(PREV_PLACEHOLDER), e) ? e : :($(e)($(prev)))
+        e = occursin_expr(==(PREV_PLACEHOLDER), e) ? e : :($(e)($(prev)))
+        return replace_in_pipeexpr(e, Dict(PREV_PLACEHOLDER => prev))
     end
+
+    e_orig = e
+    e = replace_prev_within_inner_pipe(e, Dict(PREV_PLACEHOLDER => prev))
+    prev_replaced = e != e_orig
 
     fcall = dissect_function_call(e)
     isnothing(fcall) && return e  # pipe step not a function call: keep it as-is
@@ -206,10 +210,39 @@ function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing})
     args = map(args) do arg
         modify_argbody(func_or_body_to_func ∘ process_implicit_pipe, arg)
     end
-    args = add_prev_arg_if_needed(fcall.funcname, args, prev)
+    if !prev_replaced
+        args = add_prev_arg_if_needed(fcall.funcname, args, prev)
+    end
     args = sort(args; by=a -> a isa Expr && a.head == :parameters, rev=true)
     :( $(fcall.funcname)($(args...)) )
 end
+
+function replace_prev_within_inner_pipe(e, syms_replacemap; maxdepth=1)
+    maxdepth < 0 && return e
+    res = prewalk(e) do ee
+        is_kwexpr(ee) && return kwexpr_skipfirst(ee)
+        is_pipecall(ee) && return modify_pipecall_argument(ee) do pe
+            replace_prev_within_inner_pipe(pe, Dict(Symbol(k, :ꜛ) => v for (k, v) in syms_replacemap); maxdepth=maxdepth-1)
+        end
+        haskey(syms_replacemap, ee) && return syms_replacemap[ee]
+        return ee
+    end
+end
+
+function modify_pipecall_argument(f, e)
+    if is_macropipe(e)
+        mainarg = e.args[end]
+        if Base.isexpr(mainarg, :tuple)
+            block, rest = mainarg.args[1], mainarg.args[2:end]
+            @assert !(block isa LineNumberNode)
+            return Expr(:macrocall, e.args[1:end-1]..., Expr(:tuple, StopWalk(f(block)), rest...))
+        else
+            return Expr(:macrocall, e.args[1:end-1]..., StopWalk(f(mainarg)))
+        end
+    end
+    return StopWalk(f(e))
+end
+
 
 process_implicit_pipe(arg) = 
     if is_implicitpipe(arg)
