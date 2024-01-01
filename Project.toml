@@ -1,7 +1,7 @@
 name = "DataPipes"
 uuid = "02685ad9-2d12-40c3-9f73-c6aeda6a7ff5"
 authors = ["Alexander Plavin <alexander@plav.in>"]
-version = "0.3.8"
+version = "0.3.9"
 
 [compat]
 julia = "1.6"
