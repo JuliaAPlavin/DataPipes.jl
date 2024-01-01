@@ -18,13 +18,16 @@ function pipefunc_macro(block)
     @remove_linenums! :( $(arg) -> $(map(final_expr, steps)...) ) |> esc
 end
 
+struct NoPrevArg end
+Base.isnothing(::NoPrevArg) = true
+
 function pipe_macro(block; debug=false)
-    blocktype, steps = process_block(block, nothing)
+    blocktype, steps = process_block(block, NoPrevArg())
     isempty(steps) && return nothing
     res_arg = filtermap(res_arg_if_propagated, steps) |> last
     all_exports = mapreduce(exports, vcat, steps)
     all_assigns = mapreduce(assigns, vcat, steps)
-    if debug
+    res_expr = if debug
         all_res_args = filtermap(res_arg_if_present, steps)
         exprs = map(steps) do s
             e = final_expr(s)
@@ -41,7 +44,7 @@ function pipe_macro(block; debug=false)
                 $(exprs...)
                 $(res_arg)
             end
-        end |> esc
+        end
     elseif blocktype == :let
         @remove_linenums! quote
             ($([all_exports..., res_arg]...),) = let ($(all_assigns...))
@@ -49,15 +52,26 @@ function pipe_macro(block; debug=false)
                 ($([all_exports..., res_arg]...),)
             end
             $(res_arg)
-        end |> esc
+        end
     elseif blocktype == :begin
         @remove_linenums! quote
             $(map(final_expr, steps)...)
             $(res_arg)
-        end |> esc
+        end
     else
         error("Unexpected block type: $blocktype")
     end
+
+    res_expr = if occursin_expr(==(NoPrevArg()), res_expr)
+        funcarg = gensym(:funcarg)
+        res_expr = prewalk(res_expr) do e
+            e == NoPrevArg() ? funcarg : e
+        end
+        :($funcarg -> $res_expr)
+    else
+        res_expr
+    end
+    return esc(res_expr)
 end
 
 function process_block(block, initial_arg)
@@ -190,10 +204,10 @@ end
 # anything else, e.g. plain numbers or strings: keep as-is
 transform_pipe_step(e, prev) = e
 # symbol as the first pipeline step: keep as-is
-transform_pipe_step(e::Symbol, prev::Nothing) = e
+transform_pipe_step(e::Symbol, prev::Union{Nothing,NoPrevArg}) = e
 # symbol as latter pipeline steps: generally represents a function call
 transform_pipe_step(e::Symbol, prev::Symbol) = e == PREV_PLACEHOLDER ? prev : :($(e)($(prev)))
-function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing})
+function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing, NoPrevArg})
     if !isnothing(prev) && is_qualified_name(e)
         # qualified function name, as in Iterators.map
         e = occursin_expr(==(PREV_PLACEHOLDER), e) ? e : :($(e)($(prev)))
@@ -283,7 +297,7 @@ function dissect_function_call(e::Expr)
     end
 end
 
-add_prev_arg_if_needed(func_fullname, args, prev::Nothing) = args
+add_prev_arg_if_needed(func_fullname, args, prev::Union{Nothing,NoPrevArg}) = args
 function add_prev_arg_if_needed(func_fullname, args, prev)
     # check if there are any prev placeholders in args already
     need_to_append = !any([func_fullname; args]) do arg

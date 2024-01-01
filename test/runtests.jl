@@ -275,6 +275,9 @@ end
     @test data |> @f(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
     @test @pipe(data) |> @f(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
     @test @pipe(data, map(_.name)) |> @f(map(_^2)) == ["A BA B", "CC"]
+
+    @test (1:3 |> @p map(_+1, __)) == [2, 3, 4]
+    @test (1:3 |> @p map(_+1, __) |> sum) == 9
 end
 
 @testset "nested pipes" begin
