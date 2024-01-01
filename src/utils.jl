@@ -116,4 +116,10 @@ macro S_str(str)
 end
 
 
+# hack? see https://github.com/JuliaWeb/HTTP.jl/pull/981/files
+macro remove_linenums!(expr)
+    return esc(Base.remove_linenums!(expr))
+end
+
+
 filtermap(f, A) = map(something, filter(!isnothing, map(f, A)))

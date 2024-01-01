@@ -8,7 +8,7 @@ macro pipefunc(exprs...) pipefunc_macro(exprs) end
 function pipefunc_macro(block)
     arg = gensym("pipefuncarg")
     blocktype, steps = process_block(block, arg)
-    :( $(arg) -> $(map(final_expr, steps)...) ) |> esc
+    @remove_linenums! :( $(arg) -> $(map(final_expr, steps)...) ) |> esc
 end
 
 function pipe_macro(block; debug=false)
@@ -22,12 +22,12 @@ function pipe_macro(block; debug=false)
         exprs = map(steps) do s
             e = final_expr(s)
             res = res_arg_if_present(s)
-            isnothing(res) ? e : :(
+            isnothing(res) ? e : @remove_linenums! :(
                 $e;
                 push!(_pipe, $res)
             )
         end
-        quote
+        @remove_linenums! quote
             global ($([all_assigns..., res_arg]...),)
             global _pipe = []
             let $(all_res_args...)
@@ -36,7 +36,7 @@ function pipe_macro(block; debug=false)
             end
         end |> esc
     elseif blocktype == :let
-        quote
+        @remove_linenums! quote
             ($([all_exports..., res_arg]...),) = let ($(all_assigns...))
                 $(map(final_expr, steps)...)
                 ($([all_exports..., res_arg]...),)
@@ -44,7 +44,7 @@ function pipe_macro(block; debug=false)
             $(res_arg)
         end |> esc
     elseif blocktype == :begin
-        quote
+        @remove_linenums! quote
             $(map(final_expr, steps)...)
             $(res_arg)
         end |> esc
@@ -211,7 +211,7 @@ process_implicit_pipe(arg) =
         iarg = gensym("innerpipe_arg")
         blocktype, steps = process_block(block, iarg)
         new_args = replace_in_pipeexpr(lambda_function_args(arg), Dict(:__ => iarg))
-        expr = :( ($(new_args...),) -> $(map(final_expr, steps)...) )
+        expr = @remove_linenums! :( ($(new_args...),) -> $(map(final_expr, steps)...) )
         if lambda_function_args(arg) == (IMPLICIT_PIPE_ARG,)
             # not sure what replacement to do when multiple args
             expr = replace_arg_placeholders_within_inner_pipe(expr, [iarg])
@@ -329,7 +329,7 @@ function func_or_body_to_func(e)
             e_replaced
         else
             # just function body, need to turn into definition
-            :(($(args...),) -> $e_replaced)
+            @remove_linenums! :(($(args...),) -> $e_replaced)
         end
     else
         e
