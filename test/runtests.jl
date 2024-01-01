@@ -459,12 +459,27 @@ end
     @test (@p 1:5 |> Iterators.product(__, [1, 2]) |> collect) == [(1, 1) (1, 2); (2, 1) (2, 2); (3, 1) (3, 2); (4, 1) (4, 2); (5, 1) (5, 2)]
 end
 
+module MyMacroMod
+macro minner(expr)
+    return :(10 * $expr)
+end
+
+macro mouter(expr)
+    return :(@minner $expr + 1)
+end
+end
+
 @testset "macro interop" begin
     @testset "Accessors.jl" begin
         @test (@p data |> map(@optic(_.name))) == ["A B", "C"]
         @test (@p data |> map(@set(_.name = "newname")) |> map(_.name)) == ["newname", "newname"]
         @test (@p data |> map(@set(_ |> _.name = "newname")) |> map(_.name)) == ["newname", "newname"]
-        @test (@p data |> map(@set(_ |> _.name = @p _ꜛ |> length(__) |> string)) |> map(_.name)) == ["2", "2"]
+
+        # _ꜛ doesn't work with recursive inner-macro expansion:
+        @test_broken (@p data |> map(@set(_ |> _.name = @p _ꜛ |> length(__) |> string)) |> map(_.name)) == ["2", "2"]
+        # _ works, it's actually kept intact by the inner @p macro and expanded just by the outer one
+        @test (@p data |> map(@set(_ |> _.name = @p _ |> length(__) |> string)) |> map(_.name)) == ["2", "2"]
+
         @test (@p data |> map(x -> @set(x |> _.name = "newname")) |> map(_.name)) == ["newname", "newname"]
         @test (@p data |> map(x -> @set(x |> _.name = length(__)), __) |> map(_.name)) == [2, 2]
 
@@ -478,6 +493,11 @@ end
 
     @testset "PyFormattedStrings.jl" begin
         @test (@p 1:5 |> map(f"{_:03d}")) == ["001", "002", "003", "004", "005"]
+    end
+
+    @testset "two-level macro" begin
+        @test (@p MyMacroMod.@mouter 1) == 20
+        @test (@p MyMacroMod.MyMacroMod.@mouter 1) == 20
     end
 end
 
