@@ -49,7 +49,7 @@ function pipe_macro(block; debug=false, __module__)
         end
     end
     blocktype, steps = process_block(block, NoPrevArg())
-    isempty(steps) && return nothing
+    any(s -> !(s isa LineNumberNode), steps) || return nothing
     res_arg = filtermap(res_arg_if_propagated, steps) |> last
     all_exports = mapreduce(exports, vcat, steps)
     all_assigns = mapreduce(assigns, vcat, steps)
