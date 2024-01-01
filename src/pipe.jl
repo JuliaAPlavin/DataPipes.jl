@@ -1,4 +1,11 @@
-macro pipe(block) pipe_macro(block) end
+macro pipe(block)
+    if Base.isexpr(block, :tuple)
+        block, rest = block.args[1], block.args[2:end]
+        :(($(pipe_macro(block)), $(esc.(rest)...))...)
+    else
+        pipe_macro(block)
+    end
+end
 macro pipe(exprs...) pipe_macro(exprs) end
 macro pipeDEBUG(block) pipe_macro(block; debug=true) end
 macro pipeDEBUG(exprs...) pipe_macro(exprs; debug=true) end
