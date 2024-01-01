@@ -25,6 +25,7 @@ function macroname(e::Expr)
     @assert Meta.isexpr(e, :macrocall)
     e.args[1] isa Symbol && return e.args[1]
     e.args[1] isa GlobalRef && return e.args[1].name
+    Meta.isexpr(e.args[1], :.) && return e.args[1].args[2]
     error("Unsupported macro spec: $(e.args[1])")
 end
 
@@ -42,7 +43,7 @@ function pipe_macro(block; debug=false, __module__)
     block = prewalk(ee -> get(REPLACE_IN_PIPE, ee, ee), block)
     block = prewalk(block) do x
         if ismacrocall_excl(MACROS_NOEXPAND, x)
-            macroexpand(__module__, x; recursive=false)
+            macroexpand(__module__, x; recursive=true)
         else
             x
         end
