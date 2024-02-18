@@ -335,7 +335,7 @@ function add_prev_arg_if_needed(func_fullname, args, prev)
     end
     if need_to_append
         name = string(unqualified_name(func_fullname))
-        all(!isletter, name[1]) && @warn "Pipeline step top-level function is an operator. An argument with the previous step results is still appended." func=name args
+        all(!isletter, name) && @warn "Pipeline step top-level function is an operator. An argument with the previous step results is still appended." func=name args
         [args; [prev]]
     else
         args
