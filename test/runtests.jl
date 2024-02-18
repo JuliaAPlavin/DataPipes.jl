@@ -672,53 +672,53 @@ end
     @test_throws UndefVarError orig
     @test_throws UndefVarError filt
 
-    # XXX: not needed in reality; tests fail without this for some reason
-    # orig2 = orig3 = filt2 = val = ix = nothing
-
-    @test (@pipe begin
+    x = @pipe begin
         @export orig2 = [1, 2, 3, 4]
         map(_^2)
         filter(_ >= 4)
         sum(__) / sum(orig2)
-    end) == 2.9
+    end
+    @test x == 2.9
     @test orig2 == [1, 2, 3, 4]
 
-    @test (@pipe begin
+    x = @pipe begin
         @export orig3 = [1, 2, 3, 4]
         map(_^2)
         @export filt2 = filter(_ >= 4)
         sum(__) / sum(orig3)
-    end) == 2.9
+    end
+    @test x == 2.9
     @test orig3 == [1, 2, 3, 4]
     @test filt2 == [4, 9, 16]
 
-    @test (@pipe let
+    x = @pipe let
         [1, 2, 3, 4]
         map(_^2)
         val, ix = findmax()
         @asis val^2
-    end) == 256
-    @test val === nothing && ix === nothing
+    end
+    @test x == 256
+    @test_throws UndefVarError val
+    @test_throws UndefVarError ix
 
-    @test (@pipe let
+    x = @pipe let
         [1, 2, 3, 4]
         map(_^2)
         @export val, ix = findmax()
         @asis val^2
-    end) == 256
+    end
+    @test x == 256
     @test val == 16 && ix == 4
 
     # test that defining variables beforehand is not required; for some reason, only works in a function
-    f = () -> begin
-        r = @pipe let
-            [1, 2, 3, 4]
-            map(_^2)
-            @export val1, ix1 = findmax()
-            @asis val1^2
-        end
-        return r, val1, ix1
+    r = @pipe let
+        [1, 2, 3, 4]
+        map(_^2)
+        @export val1, ix1 = findmax()
+        @asis val1^2
     end
-    @test f() == (256, 16, 4)
+    @test r == 256
+    @test val1 == 16 && ix1 == 4
 
     @test (@pipe begin
         [1, 2, 3, 4]
@@ -759,21 +759,22 @@ end
     # end) == [2, 5, 10, 17, 26]
     # @test tmp == [25]
 
-    x, y = nothing, nothing
-    @test (@p begin
+    xx = @p begin
         1:5
         map(_^2)
         @aside @export x = last(__)
         map(_ + 1)
-    end) == [2, 5, 10, 17, 26]
+    end
+    @test xx == [2, 5, 10, 17, 26]
     @test x == 25
 
-    @test (@p begin
+    xx = @p begin
         1:5
         map(_^2)
         @aside @export y = last()
         map(_ + 1)
-    end) == [2, 5, 10, 17, 26]
+    end
+    @test xx == [2, 5, 10, 17, 26]
     @test y == 25
 
     @test (@p begin
@@ -849,7 +850,7 @@ end
 end
 
 @testitem "unpacking" begin
-    @test (@p [(a=1,)] |> map((;a) -> a)) == [1]
+    @test (@p [(a=1,)] |> map(((;a),) -> a)) == [1]
     @test (@p [(a=1,)] |> map() do (;a)
         a
     end) == [1]
