@@ -850,10 +850,12 @@ end
 end
 
 @testitem "unpacking" begin
+    @static if VERSION ≥ v"1.9"
     @test (@p [(a=1,)] |> map(((;a),) -> a)) == [1]
     @test (@p [(a=1,)] |> map() do (;a)
         a
     end) == [1]
+    end
 end
 
 @testitem "debug mode" begin
