@@ -254,7 +254,7 @@ function transform_pipe_step(e::Expr, prev::Union{Symbol, Nothing, NoPrevArg})
         args = add_prev_arg_if_needed(fcall.funcname, args, prev)
     end
     args = sort(args; by=a -> a isa Expr && a.head == :parameters, rev=true)
-    :( $(fcall.funcname)($(args...)) )
+    reassemble_function_call(fcall, args)
 end
 
 function replace_prev_within_inner_pipe(e, syms_replacemap; maxdepth=1)
@@ -318,11 +318,20 @@ function dissect_function_call(e::Expr)
         fname = e.args[1].args[1]
         args = [e.args[2:end]..., e.args[1].args[2:end]...]  # do-arg first, then all args from within the call
         (funcname=fname, args)
+    elseif e.head == :. && Meta.isexpr(e.args[2], :tuple)
+        # broadcast, like abs.()
+        (funcname=e.args[1], broadcast=true, args=e.args[2].args)
     else
         # anything else
         # e.g., a[b], macro call, what else?
         nothing
     end
+end
+
+reassemble_function_call(fcall, args) = if get(fcall, :broadcast, false)
+    :( $(fcall.funcname).($(args...)) )
+else
+    :( $(fcall.funcname)($(args...)) )
 end
 
 add_prev_arg_if_needed(func_fullname, args, prev::Union{Nothing,NoPrevArg}) = args
