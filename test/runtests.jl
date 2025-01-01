@@ -232,8 +232,10 @@ end
 end
 
 @testitem "pipe broadcast" begin
-    @test_broken @p(-4:2 |> map(_ + 1) |> abs.() |> sum) == 12
     @test @p(-4:2 |> map(_ + 1) |> abs.(__) |> sum) == 12
+    @test @p(-4:2 |> map(_ + 1) |> abs.() |> sum) == 12
+    @test @p(-4:2 |> map(_ + 1) |> Base.abs.(__) |> sum) == 12
+    @test @p(-4:2 |> map(_ + 1) |> Base.abs.() |> sum) == 12
 
     @test @p(-4:2 |> map(_ + 1) .|> abs |> sum) == 12
     @test @p(-4:2 |> map(_ + 1) .|> abs(__) |> sum) == 12
