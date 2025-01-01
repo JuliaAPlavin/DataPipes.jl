@@ -1,9 +1,5 @@
 name: Export Pluto notebooks
 on:
-    push:
-        branches:
-            - main
-            - master
     workflow_dispatch:
 
 env:
@@ -20,7 +16,7 @@ jobs:
             - name: Install Julia
               uses: julia-actions/setup-julia@v1
               with:
-                  version: 1.7
+                  version: 1
 
             - run: |
                   mkdir -p ~/.ssh
