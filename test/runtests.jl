@@ -1,21 +1,17 @@
-using DataPipes
-using Test
-using Accessors
-using PyFormattedStrings
+using TestItems
+using TestItemRunner
+@run_package_tests
 
+# using Accessors
+# using PyFormattedStrings
 
-module MyModule
-myfunc(x) = 2x
-end
+@testitem "simple" begin
+    data = [
+        (name="A B", values=[1, 2, 3, 4]),
+        (name="C", values=[5, 6]),
+    ]
+    data_original = copy(data)
 
-
-data = [
-    (name="A B", values=[1, 2, 3, 4]),
-    (name="C", values=[5, 6]),
-]
-data_original = copy(data)
-
-@testset "simple" begin
     @test @p() === nothing
     @test (@p let
     end) === nothing
@@ -140,30 +136,6 @@ data_original = copy(data)
         123
     end) == 123
 
-    @test (@pipe begin
-        123
-        MyModule.myfunc()
-    end) == 246
-
-    @test (@pipe begin
-        [123, 321]
-        map(MyModule.myfunc)
-    end) == [246, 642]
-
-    @test (@p "abc") == "abc"
-    @test (@p "abc" |> uppercase) == "ABC"
-    @test (@p begin
-        "abc"
-    end) == "abc"
-    @test (@p begin
-        "abc"
-        uppercase()
-    end) == "ABC"
-    @test (@p begin
-        "abc"
-        uppercase(__)
-    end) == "ABC"
-
     @test (@p begin
         1:3
         map(_, (__) .* 10)
@@ -223,9 +195,43 @@ data_original = copy(data)
     end
     @test f(1:5) == 123
     @test f(1:2) === nothing
+
+    @test data == data_original
 end
 
-@testset "pipe broadcast" begin
+@testitem "func from module" begin
+    module MyModule
+    myfunc(x) = 2x
+    end
+
+    @test (@pipe begin
+        123
+        MyModule.myfunc()
+    end) == 246
+
+    @test (@pipe begin
+        [123, 321]
+        map(MyModule.myfunc)
+    end) == [246, 642]
+end
+
+@testitem "string as the first step" begin
+    @test (@p "abc") == "abc"
+    @test (@p "abc" |> uppercase) == "ABC"
+    @test (@p begin
+        "abc"
+    end) == "abc"
+    @test (@p begin
+        "abc"
+        uppercase()
+    end) == "ABC"
+    @test (@p begin
+        "abc"
+        uppercase(__)
+    end) == "ABC"
+end
+
+@testitem "pipe broadcast" begin
     @test_broken @p(-4:2 |> map(_ + 1) |> abs.() |> sum) == 12
     @test @p(-4:2 |> map(_ + 1) |> abs.(__) |> sum) == 12
 
@@ -238,7 +244,12 @@ end
     @test @p(1:3 |> map((a=_,)) .|> __.a) == 1:3
 end
 
-@testset "composable pipe" begin
+@testitem "composable pipe" begin
+    data = [
+        (name="A B", values=[1, 2, 3, 4]),
+        (name="C", values=[5, 6]),
+    ]
+
     @test @pipe(begin
         data
         map(@pipe(_ꜛ))
@@ -274,7 +285,12 @@ end
     @test (@p 1 |> Complex{Int}) === 1 + 0im
 end
 
-@testset "pipe function" begin
+@testitem "pipe function" begin
+    data = [
+        (name="A B", values=[1, 2, 3, 4]),
+        (name="C", values=[5, 6]),
+    ]
+
     @test data |> @f(map(_.name)) == ["A B", "C"]
     @test data |> @f(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
     @test @pipe(data) |> @f(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
@@ -285,7 +301,12 @@ end
     @test (1:3 |> @p __ |> sum(_+1)) == 9
 end
 
-@testset "nested pipes" begin
+@testitem "nested pipes" begin
+    data = [
+        (name="A B", values=[1, 2, 3, 4]),
+        (name="C", values=[5, 6]),
+    ]
+
     @test (@pipe begin
         data
         map(x -> (;x.name, values=@pipe(x.values |> map(_^2))))
@@ -346,7 +367,12 @@ end
     end) == [[1, 2, 3, 4], [5, 6]]
 end
 
-@testset "implicit inner pipe" begin
+@testitem "implicit inner pipe" begin
+    data = [
+        (name="A B", values=[1, 2, 3, 4]),
+        (name="C", values=[5, 6]),
+    ]
+
     @test (@p begin
         data
         map() do __
@@ -371,7 +397,12 @@ end
     @test @p(1:3 |> sort(; by=__ -> map(-_))) == [3, 2, 1]
 end
 
-@testset "other base funcs" begin
+@testitem "other base funcs" begin
+    data = [
+        (name="A B", values=[1, 2, 3, 4]),
+        (name="C", values=[5, 6]),
+    ]
+
     @test (@pipe begin
         data
         filter(length(_.values) > 3)
@@ -463,57 +494,72 @@ end
     @test (@p 1:5 |> Iterators.product(__, [1, 2]) |> collect) == [(1, 1) (1, 2); (2, 1) (2, 2); (3, 1) (3, 2); (4, 1) (4, 2); (5, 1) (5, 2)]
 end
 
-module MyMacroMod
-macro minner(expr)
-    return :(10 * $expr)
+@testitem "macro - Accessors" begin
+    using Accessors
+
+    data = [
+        (name="A B", values=[1, 2, 3, 4]),
+        (name="C", values=[5, 6]),
+    ]
+
+    @test (@p data |> map(@optic(_.name))) == ["A B", "C"]
+    # @test (@p data |> map(@o(_.name))) == ["A B", "C"]
+    @test (@p data |> map(@set(_.name = "newname")) |> map(_.name)) == ["newname", "newname"]
+    @test (@p data |> map(@set(_ |> _.name = "newname")) |> map(_.name)) == ["newname", "newname"]
+
+    # _ꜛ doesn't work with recursive inner-macro expansion:
+    @test_broken (@p data |> map(@set(_ |> _.name = @p _ꜛ |> length(__) |> string)) |> map(_.name)) == ["2", "2"]
+    # _ works, it's actually kept intact by the inner @p macro and expanded just by the outer one
+    @test (@p data |> map(@set(_ |> _.name = @p _ |> length(__) |> string)) |> map(_.name)) == ["2", "2"]
+
+    @test (@p data |> map(x -> @set(x |> _.name = "newname")) |> map(_.name)) == ["newname", "newname"]
+    @test (@p data |> map(x -> @set(x |> _.name = length(__)), __) |> map(_.name)) == [2, 2]
+
+    @test (@p data |> map(set(_, @optic(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
+    @test (@p data |> map(set(_, @o(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
+    @test (@p data |> map(x -> set(x, @o(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
+
+    @test (@p data |> @modify(x -> x + 1, (__ |> Elements()).values |> Elements())) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
+    @test (@p data |> @modify(_ + 1, (__ |> Elements()).values |> Elements())) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
+    @test (@p data |> @modify((__ |> Elements()).values |> Elements()) do x x + 1 end) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
+    @test (@p @modify((data |> Elements()).values |> Elements()) do x x + 1 end) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
+    @macroexpand (@p data |> @modify((data |> Elements()).values |> Elements()) do x x + 1 end)  # should just expand - code doesn't work, but even expansion threw error before
 end
 
-macro mouter(expr)
-    return :(@minner $expr + 1)
-end
-end
+@testitem "macro - PyFormattedStrings" begin
+    using PyFormattedStrings
 
-macro my_str(expr)
-    return expr
+    @test (@p 1:5 |> map(f"{_:03d}")) == ["001", "002", "003", "004", "005"]
 end
 
-@testset "macro interop" begin
-    @testset "Accessors.jl" begin
-        @test (@p data |> map(@optic(_.name))) == ["A B", "C"]
-        @test (@p data |> map(@set(_.name = "newname")) |> map(_.name)) == ["newname", "newname"]
-        @test (@p data |> map(@set(_ |> _.name = "newname")) |> map(_.name)) == ["newname", "newname"]
+@testitem "two-level macro" begin
+    using Accessors
 
-        # _ꜛ doesn't work with recursive inner-macro expansion:
-        @test_broken (@p data |> map(@set(_ |> _.name = @p _ꜛ |> length(__) |> string)) |> map(_.name)) == ["2", "2"]
-        # _ works, it's actually kept intact by the inner @p macro and expanded just by the outer one
-        @test (@p data |> map(@set(_ |> _.name = @p _ |> length(__) |> string)) |> map(_.name)) == ["2", "2"]
-
-        @test (@p data |> map(x -> @set(x |> _.name = "newname")) |> map(_.name)) == ["newname", "newname"]
-        @test (@p data |> map(x -> @set(x |> _.name = length(__)), __) |> map(_.name)) == [2, 2]
-
-        @test (@p data |> map(set(_, @optic(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
-        @test (@p data |> map(set(_, @o(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
-        @test (@p data |> map(x -> set(x, @o(_.name), "newname")) |> map(_.name)) == ["newname", "newname"]
-
-        @test (@p data |> @modify(x -> x + 1, (__ |> Elements()).values |> Elements())) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
-        @test (@p data |> @modify(_ + 1, (__ |> Elements()).values |> Elements())) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
-        @test (@p data |> @modify((__ |> Elements()).values |> Elements()) do x x + 1 end) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
-        @test (@p @modify((data |> Elements()).values |> Elements()) do x x + 1 end) == [(name = "A B", values = [2, 3, 4, 5]), (name = "C", values = [6, 7])]
-        @macroexpand (@p data |> @modify((data |> Elements()).values |> Elements()) do x x + 1 end)  # should just expand - code doesn't work, but even expansion threw error before
+    macro my_str(expr)
+        return expr
     end
 
-    @testset "PyFormattedStrings.jl" begin
-        @test (@p 1:5 |> map(f"{_:03d}")) == ["001", "002", "003", "004", "005"]
+    module MyMacroMod
+    macro minner(expr)
+        return :(10 * $expr)
     end
 
-    @testset "two-level macro" begin
-        @test (@p MyMacroMod.@mouter 1) == 20
-        @test (@p MyMacroMod.MyMacroMod.@mouter 1) == 20
-        @test (@p 1:3 |> map(@optic _ * parse(Int, my"2"))) == 2:2:6
+    macro mouter(expr)
+        return :(@minner $expr + 1)
     end
+    end
+
+    @test (@p MyMacroMod.@mouter 1) == 20
+    @test (@p MyMacroMod.MyMacroMod.@mouter 1) == 20
+    @test (@p 1:3 |> map(@optic _ * parse(Int, my"2"))) == 2:2:6
 end
 
-@testset "explicit arg" begin
+@testitem "explicit arg" begin
+    data = [
+        (name="A B", values=[1, 2, 3, 4]),
+        (name="C", values=[5, 6]),
+    ]
+
     @test (@pipe begin
         data
         first()
@@ -616,7 +662,7 @@ end
     end)
 end
 
-@testset "assigments" begin
+@testitem "assigments" begin
     @test (@pipe begin
         orig = [1, 2, 3, 4]
         map(_^2)
@@ -627,7 +673,7 @@ end
     @test_throws UndefVarError filt
 
     # XXX: not needed in reality; tests fail without this for some reason
-    orig2 = orig3 = filt2 = val = ix = nothing
+    # orig2 = orig3 = filt2 = val = ix = nothing
 
     @test (@pipe begin
         @export orig2 = [1, 2, 3, 4]
@@ -683,7 +729,7 @@ end
     @test val == 16 && ix == 4
 end
 
-@testset "aside" begin
+@testitem "aside" begin
     tmp = []
     @test (@p begin
         1:5
@@ -778,7 +824,7 @@ end
     end) == [55, 110, 165, 220, 275]
 end
 
-@testset "underscore as keyword name" begin
+@testitem "underscore as keyword name" begin
     @test (@p 1:5 |> map((;_=_^2))) == [(_=1,), (_=4,), (_=9,), (_=16,), (_=25,)]
     @test (@p 1:5 |> map((;__=_^2))) == [(__=1,), (__=4,), (__=9,), (__=16,), (__=25,)]
     @test (@p 1:5 |> map((;__=_^2), __)) == [(__=1,), (__=4,), (__=9,), (__=16,), (__=25,)]
@@ -794,7 +840,7 @@ end
     @test (@p 1:5 |> identity((_=__, a=123))) == (_=1:5, a=123)
 end
 
-@testset "splatted" begin
+@testitem "splatted" begin
     @test_broken (@p (1, 2)) == (1, 2)
     @test_broken (@p 1:5 |> map(_*2), 1:5) == ([2, 4, 6, 8, 10], 1:5)
     @test tuple(@p 1:5 |> map(_*2), @p 1:5) == ([2, 4, 6, 8, 10], 1:5)
@@ -802,7 +848,14 @@ end
     @test map(@p =>, @p 1:5 |> map(_*2), @p 1:5 |> map(_+1)) == [2=>2, 4=>3, 6=>4, 8=>5, 10=>6]
 end
 
-@testset "debug mode" begin
+@testitem "unpacking" begin
+    @test (@p [(a=1,)] |> map((;a) -> a)) == [1]
+    @test (@p [(a=1,)] |> map() do (;a)
+        a
+    end) == [1]
+end
+
+@testitem "debug mode" begin
     @test (@pDEBUG begin
         1:5
         map(_ * 2)
@@ -862,15 +915,17 @@ end
     end
 end
 
-@testset "errors" begin
+@testitem "errors" begin
     @test_throws UndefVarError @pipe begin
         data
         map((_, _ꜛ))
     end
 end
 
-@test data == data_original
+@testitem "_" begin
+    import CompatHelperLocal as CHL
+    CHL.@check()
 
-
-import CompatHelperLocal
-CompatHelperLocal.@check()
+    using Aqua
+    Aqua.test_all(DataPipes)
+end
