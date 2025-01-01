@@ -277,6 +277,8 @@ end
     @test @p(1:3 |> (x=length(__), y=@p __ꜛ |> map(_ + 1))) == (x = 3, y = [2, 3, 4])
     @test @p(1:3 |> tuple(@p __ꜛ |> map(_ + 1), length(__))) == ([2, 3, 4], 3)
     @test @p(1:3 |> tuple(@p __ꜛ |> map(_ + 1), @p map(_ + 2, __ꜛ))) == ([2, 3, 4], [3, 4, 5])
+    @test @p(1:3 |> tuple(@p __ꜛ |> map(_ + 1), @p map(_ + 2, __ꜛ), @p map(_ + 3, __ꜛ))) == ([2, 3, 4], [3, 4, 5], [4, 5, 6])
+    @test @p(1:3 |> tuple(@p __ꜛ |> map(_ + 1), @p map(_ + 2, __ꜛ)) |> first) == [2, 3, 4]
     # https://github.com/MasonProtter/SimpleUnderscores.jl/issues/2:
     @test_broken (@eval(@p(1:3 |> (x=@p __ꜛ |> map(_ + 1), y=@p map(_ + 2, __ꜛ)))); true)
     # @test @p(1:3 |> (x=@p__ map(_ + 1)), y=@p__ map(_ + 2))  # is it needed, or more confusing?
@@ -365,6 +367,13 @@ end
             end
         end
     end) == [[1, 2, 3, 4], [5, 6]]
+
+    @test (@p let
+        1:2
+        map() do x
+            @p 1:x map(_ + 1) zip(__, [1, 2]) collect
+        end
+    end) == [[(2, 1)], [(2, 1), (3, 2)]]
 end
 
 @testitem "implicit inner pipe" begin
