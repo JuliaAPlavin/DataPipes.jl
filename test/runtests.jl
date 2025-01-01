@@ -503,7 +503,7 @@ end
     ]
 
     @test (@p data |> map(@optic(_.name))) == ["A B", "C"]
-    # @test (@p data |> map(@o(_.name))) == ["A B", "C"]
+    @test (@p data |> map(@o(_.name))) == ["A B", "C"]
     @test (@p data |> map(@set(_.name = "newname")) |> map(_.name)) == ["newname", "newname"]
     @test (@p data |> map(@set(_ |> _.name = "newname")) |> map(_.name)) == ["newname", "newname"]
 
@@ -851,10 +851,10 @@ end
 
 @testitem "unpacking" begin
     @static if VERSION ≥ v"1.9"
-    @test (@p [(a=1,)] |> map(((;a),) -> a)) == [1]
-    @test (@p [(a=1,)] |> map() do (;a)
-        a
-    end) == [1]
+        @test (@p [(a=1,)] |> map(((;a),) -> a)) == [1]
+        @test (@p [(a=1,)] |> map() do (;a)
+            a
+        end) == [1]
     end
 end
 
