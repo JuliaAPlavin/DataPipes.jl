@@ -304,6 +304,8 @@ end
 end
 
 @testitem "pipe function" begin
+    using Accessors
+
     data = [
         (name="A B", values=[1, 2, 3, 4]),
         (name="C", values=[5, 6]),
@@ -311,12 +313,16 @@ end
 
     @test data |> @f(map(_.name)) == ["A B", "C"]
     @test data |> @f(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
+    @test data |> (@f map(_.name) map(_^2)) == ["A BA B", "CC"]
     @test @pipe(data) |> @f(map(_.name) |> map(_^2)) == ["A BA B", "CC"]
     @test @pipe(data, map(_.name)) |> @f(map(_^2)) == ["A BA B", "CC"]
 
     @test (1:3 |> @p map(_+1, __)) == [2, 3, 4]
     @test (1:3 |> @p map(_+1, __) |> sum) == 9
     @test (1:3 |> @p __ |> sum(_+1)) == 9
+
+    @test (1:3 |> @p map((@o _ + 1), __)) == [2, 3, 4]
+    @test (1:3 |> @f map(@o _ + 1)) == [2, 3, 4]
 end
 
 @testitem "nested pipes" begin

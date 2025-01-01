@@ -9,14 +9,8 @@ end
 macro pipe(exprs...) pipe_macro(exprs; __module__) end
 macro pipeDEBUG(block) pipe_macro(block; debug=true, __module__) end
 macro pipeDEBUG(exprs...) pipe_macro(exprs; debug=true, __module__) end
-macro pipefunc(block) pipefunc_macro(block; __module__) end
-macro pipefunc(exprs...) pipefunc_macro(exprs; __module__) end
-
-function pipefunc_macro(block; __module__)
-    arg = gensym(:funcarg)
-    blocktype, steps = process_block(block, arg)
-    @remove_linenums! :( $(arg) -> $(map(final_expr, steps)...) ) |> esc
-end
+macro pipefunc(block) pipe_macro(block; __module__, prevarg=gensym(:funcarg)) end
+macro pipefunc(exprs...) pipe_macro(exprs; __module__, prevarg=gensym(:funcarg)) end
 
 struct NoPrevArg end
 Base.isnothing(::NoPrevArg) = true
@@ -39,7 +33,7 @@ function ismacrocall_excl(excl_names, e)
     end
 end
 
-function pipe_macro(block; debug=false, __module__)
+function pipe_macro(block; debug=false, __module__, prevarg=NoPrevArg())
     block = prewalk(ee -> get(REPLACE_IN_PIPE, ee, ee), block)
     block = prewalk(block) do x
         if ismacrocall_excl(MACROS_NOEXPAND, x)
@@ -48,7 +42,7 @@ function pipe_macro(block; debug=false, __module__)
             x
         end
     end
-    blocktype, steps = process_block(block, NoPrevArg())
+    blocktype, steps = process_block(block, prevarg)
     any(s -> !(s isa LineNumberNode), steps) || return nothing
     res_arg = filtermap(res_arg_if_propagated, steps) |> last
     all_exports = mapreduce(exports, vcat, steps)
@@ -88,10 +82,10 @@ function pipe_macro(block; debug=false, __module__)
         error("Unexpected block type: $blocktype")
     end
 
-    res_expr = if occursin_expr(==(NoPrevArg()), res_expr)
+    res_expr = if occursin_expr(==(prevarg), res_expr)
         funcarg = gensym(:funcarg)
         res_expr = prewalk(res_expr) do e
-            e == NoPrevArg() ? funcarg : e
+            e == prevarg ? funcarg : e
         end
         :($funcarg -> $res_expr)
     else
