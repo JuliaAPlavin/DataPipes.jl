@@ -271,15 +271,18 @@ end
 
 function modify_pipecall_argument(f, e)
     if is_macropipe(e)
-        mainarg = e.args[end]
-        if Meta.isexpr(mainarg, :tuple)
+        @assert length(e.args) ≥ 3
+        if length(e.args) == 3 && Meta.isexpr(e.args[end], :tuple)
             # multiple inner pipe calls, like (@p ..., @p ..., @p ...)
             # want to support that without extra parens
+            mainarg = e.args[end]
             block, rest = mainarg.args[1], mainarg.args[2:end]
             @assert !(block isa LineNumberNode)
             return Expr(:macrocall, e.args[1:end-1]..., Expr(:tuple, StopWalk(f(block)), rest...))
+        elseif length(e.args) == 3
+            return Expr(:macrocall, StopWalk.(e.args[1:2])..., StopWalk(f(e.args[3])))
         else
-            return Expr(:macrocall, StopWalk.(e.args[1:end-1])..., StopWalk(f(mainarg)))
+            return Expr(:macrocall, StopWalk.(e.args[1:2])..., StopWalk.(f(e.args[3:end]))...)
         end
     end
     return StopWalk(f(e))

@@ -277,6 +277,20 @@ end
     end) == ["aa  bb", "cc"]
 
     @test @p(1:3 |> (x=length(__), y=@p __ꜛ |> map(_ + 1))) == (x = 3, y = [2, 3, 4])
+    @test @p(1:3 |> (x=length(__), y=@p __ꜛ map(_ + 1))) == (x = 3, y = [2, 3, 4])
+    @test (@p 1:3 (x=length(__), y=@p __ꜛ map(_ + 1))) == (x = 3, y = [2, 3, 4])
+    @test (@p let
+        1:3
+        (x=length(__), y=@p __ꜛ map(_ + 1))
+    end) == (x = 3, y = [2, 3, 4])
+    @test (@p let
+        1:3
+        (x=length(__), y=@p let
+            __ꜛ
+            map(_ + 1)
+        end)
+    end) == (x = 3, y = [2, 3, 4])
+
     @test @p(1:3 |> tuple(@p __ꜛ |> map(_ + 1), length(__))) == ([2, 3, 4], 3)
     @test @p(1:3 |> tuple(@p __ꜛ |> map(_ + 1), @p map(_ + 2, __ꜛ))) == ([2, 3, 4], [3, 4, 5])
     @test @p(1:3 |> tuple(@p __ꜛ |> map(_ + 1), @p map(_ + 2, __ꜛ), @p map(_ + 3, __ꜛ))) == ([2, 3, 4], [3, 4, 5], [4, 5, 6])

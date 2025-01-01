@@ -13,7 +13,6 @@ const var"@f" = var"@pipefunc"
 
 " Result of the previous pipeline step "
 const PREV_PLACEHOLDER = :__
-const PREV_PLACEHOLDER_OUTER = :__ꜛ
 
 " Name of the lambda argument treated as an implicit inner pipe "
 const IMPLICIT_PIPE_ARG = PREV_PLACEHOLDER
