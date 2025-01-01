@@ -19,7 +19,7 @@ const PREV_PLACEHOLDER_OUTER = :__ꜛ
 const IMPLICIT_PIPE_ARG = PREV_PLACEHOLDER
 
 " Replacements to perform within pipes, before other transformations. "
-const REPLACE_IN_PIPE = Dict(S"@o" => S"@optic")
+const REPLACE_IN_PIPE = Dict{Symbol,Symbol}()
 
 " Most macros are expanded before the pipe is processed. This is the list of exceptions. "
 const MACROS_NOEXPAND = (
