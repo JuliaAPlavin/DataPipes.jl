@@ -1,4 +1,4 @@
-# DataPipes.jl
+# DataPipes.jl <|>
 
 Function piping with the focus on making general data processing boilerplate-free.
 
