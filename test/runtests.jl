@@ -563,6 +563,13 @@ end
     @test (@p 1:5 |> map(f"{_:03d}")) == ["001", "002", "003", "004", "005"]
 end
 
+@testitem "macro - StyledStrings" begin
+    using StyledStrings
+
+    abc = "hello"
+    @test (@p styled"$abc {red:def}") == styled"$abc {red:def}"
+end
+
 @testitem "two-level macro" begin
     using Accessors
 

@@ -2,6 +2,7 @@
 walk(x, inner, outer) = outer(x)
 walk(x::Expr, inner, outer) = outer(Expr(x.head, map(inner, x.args)...))
 walk(x::Union{Tuple,AbstractVector}, inner, outer) = outer(map(inner, x))
+walk(x::AbstractRange, inner, outer) = outer(x)
 
 
 abstract type WalkModifier end
